@@ -9,7 +9,7 @@ export interface StreamEvent<T> {
 }
 
 export class StreamDemux<T> {
-	private _allEventsStream: null | WritableConsumableStream<StreamEvent<T>>;
+	private _allEventsStream: null | WritableConsumableStream<StreamEvent<T>> = null;
 	private _nextConsumerId: number;
 
 	generateConsumerId: () => number;

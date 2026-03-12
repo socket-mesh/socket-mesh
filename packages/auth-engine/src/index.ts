@@ -92,7 +92,7 @@ export function defaultAuthEngine(options?: AuthOptions): AuthEngine {
 		},
 
 		verifyToken(this: AuthEngine, signedToken: string, verifyOptions?: jwt.VerifyOptions): Promise<jwt.JwtPayload> {
-			const jwtOptions = Object.assign({}, verifyOptions || {});
+			const jwtOptions: jwt.VerifyOptions & { complete?: false } = Object.assign({}, verifyOptions || {}, { complete: false as const });
 
 			if (typeof signedToken === 'string') {
 				let publicKey: jwt.Secret;
@@ -108,15 +108,13 @@ export function defaultAuthEngine(options?: AuthOptions): AuthEngine {
 				}
 
 				return new Promise((resolve, reject) => {
-					const cb: jwt.VerifyCallback<jwt.JwtPayload> = (err, token) => {
+					jwt.verify(signedToken || '', publicKey, jwtOptions, (err, token) => {
 						if (err) {
 							reject(err);
 							return;
 						}
-						resolve(token!);
-					};
-
-					jwt.verify(signedToken || '', publicKey, jwtOptions, cb);
+						resolve(token as jwt.JwtPayload);
+					});
 				});
 			}
 

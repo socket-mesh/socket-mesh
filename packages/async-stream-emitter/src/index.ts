@@ -36,7 +36,7 @@ export class AsyncStreamEmitter<T> {
 
 		object.emit = (eventName: string, ...args: any[]): boolean => {
 			const result = objEmitMethod.call(null, eventName, ...args);
-			resultEmitMethod.call(null, eventName, args);
+			resultEmitMethod.call(null, eventName, args as T);
 
 			return result;
 		};
