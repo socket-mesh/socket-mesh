@@ -2,7 +2,7 @@ import { AuthToken, SignedAuthToken } from '@socket-mesh/auth';
 import { AuthTokenOptions } from '@socket-mesh/auth-engine';
 import { ChannelMap, PublishOptions } from '@socket-mesh/channels';
 import { ClientPrivateMap, ServerPrivateMap } from '@socket-mesh/client';
-import { abortRequest, AnyPacket, AnyResponse, InboundMessage, InvokeMethodRequest, InvokeServiceRequest, PrivateMethodMap, PublicMethodMap, ServiceMap, SocketStatus, SocketTransport, TransmitMethodRequest, TransmitServiceRequest } from '@socket-mesh/core';
+import { abortRequest, AnyPacket, AnyResponse, InboundMessage, InvokeMethodRequest, InvokeServiceRequest, PrivateMethodMap, PublicMethodMap, ServiceMap, SocketStatus, SocketTransport, toError, TransmitMethodRequest, TransmitServiceRequest } from '@socket-mesh/core';
 import { AuthError, BrokerError, InvalidActionError, SocketProtocolErrorStatuses } from '@socket-mesh/errors';
 import base64id from 'base64id';
 import { IncomingMessage } from 'http';
@@ -273,9 +273,10 @@ export class ServerTransport<
 		try {
 			signedAuthToken = await auth.signToken(authToken, options as jwt.SignOptions);
 		} catch (err) {
-			this.onError(err);
-			this.disconnect(4002, err.toString());
-			throw err;
+			const error = toError(err);
+			this.onError(error);
+			this.disconnect(4002, error.toString());
+			throw error;
 		}
 
 		const changed = await super.setAuthorization(signedAuthToken, authToken);
@@ -288,18 +289,10 @@ export class ServerTransport<
 			try {
 				await this.invoke('#setAuthToken', signedAuthToken)[0];
 			} catch (err) {
-				let error: AuthError;
+				const authError = new AuthError(`Failed to deliver auth token to client - ${toError(err).message}`);
 
-				if (err && typeof err.message === 'string') {
-					error = new AuthError(`Failed to deliver auth token to client - ${err.message}`);
-				} else {
-					error = new AuthError(
-						'Failed to confirm delivery of auth token to client due to malformatted error response'
-					);
-				}
-
-				this.onError(error);
-				throw error;
+				this.onError(authError);
+				throw authError;
 			}
 			return changed;
 		}
@@ -307,7 +300,7 @@ export class ServerTransport<
 		try {
 			await this.transmit('#setAuthToken', signedAuthToken);
 		} catch (err) {
-			if (err.name !== 'BadConnectionError') {
+			if (toError(err).name !== 'BadConnectionError') {
 				throw err;
 			}
 		}
