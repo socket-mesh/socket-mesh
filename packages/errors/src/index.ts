@@ -287,6 +287,10 @@ export const SocketProtocolIgnoreStatuses: { [code: number]: string } = {
 
 export type DehydratedError = any;
 
+export interface HandshakeError extends Error {
+	statusCode: number
+}
+
 // Convert an error into a JSON-compatible type which can later be hydrated
 // back to its *original* form.
 export function dehydrateError(error: any): DehydratedError {

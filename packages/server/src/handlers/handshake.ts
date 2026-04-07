@@ -1,6 +1,6 @@
 import { HandshakeOptions, HandshakeStatus } from '@socket-mesh/client';
-import { wait } from '@socket-mesh/core';
-import { dehydrateError } from '@socket-mesh/errors';
+import { toError, wait } from '@socket-mesh/core';
+import { dehydrateError, HandshakeError } from '@socket-mesh/errors';
 
 import { processAuthentication, validateAuthToken } from './authenticate.js';
 import { ServerRequestHandlerArgs } from './server-request-handler.js';
@@ -25,10 +25,12 @@ export async function handshakeHandler(
 					transport
 				});
 			} catch (err) {
-				if (err.statusCode == null) {
-					err.statusCode = HANDSHAKE_REJECTION_STATUS_CODE;
+				const error = toError(err);
+
+				if (!('statusCode' in error)) {
+					(error as HandshakeError).statusCode = HANDSHAKE_REJECTION_STATUS_CODE;
 				}
-				throw err;
+				throw error;
 			}
 		}
 	}
