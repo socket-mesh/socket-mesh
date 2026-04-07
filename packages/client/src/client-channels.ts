@@ -1,5 +1,5 @@
 import { ChannelDetails, ChannelMap, ChannelOptions, Channels, ChannelsOptions } from '@socket-mesh/channels';
-import { MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap } from '@socket-mesh/core';
+import { MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap, toError } from '@socket-mesh/core';
 
 import { ClientTransport } from './client-transport.js';
 
@@ -152,14 +152,16 @@ export class ClientChannels<
 				delete channel.subscribeAbort;
 				this.triggerChannelSubscribe(channel, subscriptionOptions);
 			}).catch((err) => {
-				if (err.name === 'BadConnectionError') {
+				const error = toError(err);
+
+				if (error.name === 'BadConnectionError') {
 					// In case of a failed connection, keep the subscription
 					// as pending; it will try again on reconnect.
 					return;
 				}
 
-				if (err.name !== 'AbortError') {
-					this.triggerChannelSubscribeFail(err, channel, subscriptionOptions);
+				if (error.name !== 'AbortError') {
+					this.triggerChannelSubscribeFail(error, channel, subscriptionOptions);
 				}
 				delete channel.subscribePromise;
 				delete channel.subscribeAbort;
