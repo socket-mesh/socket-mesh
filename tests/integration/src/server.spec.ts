@@ -3,7 +3,7 @@ import { Channel, ChannelOptions, isPublishOptions, JsonValue, UnsubscribeEvent 
 import { ClientPrivateMap, ClientSocket, ClientSocketOptions } from '@socket-mesh/client';
 import { InOrderPlugin, OfflinePlugin, RequestBatchingPlugin, ResponseBatchingPlugin, ServerPrivateMap } from '@socket-mesh/client';
 import { AnyPacket, AuthenticatedChangeEvent, AuthStateChangeEvent, CloseEvent, ConnectEvent, DisconnectEvent, isRequestPacket, MethodRequestPacket, PluginArgs, RequestHandlerArgs, SendRequestPluginArgs, wait } from '@socket-mesh/core';
-import { PluginBlockedError } from '@socket-mesh/errors';
+import { HandshakeError, PluginBlockedError } from '@socket-mesh/errors';
 import localStorage from '@socket-mesh/local-storage';
 import { listen, Server, ServerOptions, ServerSocket, ServerSocketState } from '@socket-mesh/server';
 import { ExchangeClient, SimpleBroker } from '@socket-mesh/server/broker';
@@ -2967,7 +2967,7 @@ describe('Server Tests', function () {
 						// Set custom 4501 status code as a property of the error.
 						// We will treat this code as a fatal authentication failure on the front end.
 						// A status code of 4500 or higher means that the client shouldn't try to reconnect.
-						(err as any).statusCode = 4501;
+						(err as HandshakeError).statusCode = 4501;
 
 						throw err;
 					},
