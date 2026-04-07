@@ -1,6 +1,6 @@
 import { ChannelMap } from '@socket-mesh/channels';
 import { ClientPrivateMap, ServerPrivateMap } from '@socket-mesh/client';
-import { HandlerMap, PrivateMethodMap, PublicMethodMap, ServiceMap, Socket, SocketOptions } from '@socket-mesh/core';
+import { HandlerMap, PrivateMethodMap, PublicMethodMap, ServiceMap, Socket, SocketOptions, toError } from '@socket-mesh/core';
 import { IncomingMessage } from 'http';
 import { WebSocket } from 'ws';
 
@@ -85,7 +85,7 @@ export class ServerSocket<
 		try {
 			await this.transmit('#removeAuthToken');
 		} catch (err) {
-			if (err.name !== 'BadConnectionError') {
+			if (toError(err).name !== 'BadConnectionError') {
 				throw err;
 			}
 		}
