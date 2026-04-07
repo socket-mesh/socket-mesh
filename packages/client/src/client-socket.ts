@@ -1,6 +1,6 @@
 import { SignedAuthToken } from '@socket-mesh/auth';
 import { ChannelMap } from '@socket-mesh/channels';
-import { MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap, Socket, wait } from '@socket-mesh/core';
+import { MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap, Socket, toError, wait } from '@socket-mesh/core';
 import { hydrateError } from '@socket-mesh/errors';
 
 import { ClientChannels } from './client-channels.js';
@@ -67,7 +67,9 @@ export class ClientSocket<
 			// In order for the events to trigger we need to wait for the next tick.
 			await wait(0);
 		} catch (err) {
-			if (err.name !== 'BadConnectionError' && err.name !== 'TimeoutError') {
+			const error = toError(err);
+
+			if (error.name !== 'BadConnectionError' && error.name !== 'TimeoutError') {
 				// In case of a bad/closed connection or a timeout, we maintain the last
 				// known auth state since those errors don't mean that the token is invalid.
 				await this._clientTransport.changeToUnauthenticatedState();
@@ -76,7 +78,7 @@ export class ClientSocket<
 				await wait(0);
 			}
 
-			throw hydrateError(err);
+			throw hydrateError(error);
 		}
 	}
 
@@ -107,7 +109,7 @@ export class ClientSocket<
 			try {
 				oldAuthToken = await this._clientTransport.authEngine.removeToken();
 			} catch (err) {
-				this._clientTransport.onError(err);
+				this._clientTransport.onError(toError(err));
 				return;
 			}
 
