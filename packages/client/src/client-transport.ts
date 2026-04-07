@@ -1,6 +1,6 @@
 import { AuthToken } from '@socket-mesh/auth';
-import { FunctionReturnType, InvokeMethodOptions, InvokeServiceOptions, MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap, SocketStatus, SocketTransport } from '@socket-mesh/core';
-import { hydrateError, SocketClosedError, SocketProtocolErrorStatuses } from '@socket-mesh/errors';
+import { FunctionReturnType, InvokeMethodOptions, InvokeServiceOptions, MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap, SocketStatus, SocketTransport, toError } from '@socket-mesh/core';
+import { HandshakeError, hydrateError, SocketClosedError, SocketProtocolErrorStatuses } from '@socket-mesh/errors';
 import ws from 'isomorphic-ws';
 
 import { ClientAuthEngine, isAuthEngine, LocalStorageAuthEngine } from './client-auth-engine.js';
@@ -254,11 +254,11 @@ export class ClientTransport<
 				this.setReadyStatus(this.pingTimeoutMs, authError);
 			})
 			.catch((err) => {
-				if (err.statusCode == null) {
-					err.statusCode = 4003;
-				}
-				this.onError(err);
-				this.disconnect(err.statusCode, err.toString());
+				const error = toError(err);
+				const statusCode = (err != null && typeof err === 'object' && 'statusCode' in err) ? (err as HandshakeError).statusCode : 4003;
+
+				this.onError(error);
+				this.disconnect(statusCode, error.toString());
 			});
 	}
 
