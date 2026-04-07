@@ -2,7 +2,7 @@ import { AsyncStreamEmitter } from '@socket-mesh/async-stream-emitter';
 import { AuthEngine, defaultAuthEngine, isAuthEngine } from '@socket-mesh/auth-engine';
 import { ChannelMap } from '@socket-mesh/channels';
 import { ClientPrivateMap, ClientSocket, removeAuthTokenHandler, ServerPrivateMap } from '@socket-mesh/client';
-import { AnyPacket, CallIdGenerator, HandlerMap, PrivateMethodMap, PublicMethodMap, ServiceMap, StreamCleanupMode } from '@socket-mesh/core';
+import { AnyPacket, CallIdGenerator, HandlerMap, PrivateMethodMap, PublicMethodMap, ServiceMap, StreamCleanupMode, toError } from '@socket-mesh/core';
 import { ServerProtocolError } from '@socket-mesh/errors';
 import defaultCodec, { CodecEngine } from '@socket-mesh/formatter';
 import { DemuxedConsumableStream, StreamEvent } from '@socket-mesh/stream-demux';
@@ -81,6 +81,9 @@ export class Server<
 
 		options.clientTracking = true;
 
+		this._isListening = false;
+		this._isReady = false;
+		this._pingIntervalRef = null;
 		this.ackTimeoutMs = options.ackTimeoutMs || 10000;
 		this.allowClientPublish = options.allowClientPublish ?? true;
 		this.auth = isAuthEngine(options.authEngine) ? options.authEngine : defaultAuthEngine(options.authEngine);
@@ -452,16 +455,18 @@ export class Server<
 					}
 				}
 			} catch (err) {
-				callback(false, 401, typeof err === 'string' ? err : err.message);
+				const error = toError(err);
+				callback(false, 401, typeof err === 'string' ? err : error.message);
 				return;
 			}
 
 			callback(true);
 		} catch (err) {
-			this.onError(err);
-			this.emit('warning', { warning: err });
+			const error = toError(err);
+			this.onError(error);
+			this.emit('warning', { warning: error });
 
-			callback(false, 403, typeof err === 'string' ? err : err.message);
+			callback(false, 403, typeof err === 'string' ? err : error.message);
 		}
 	}
 }
