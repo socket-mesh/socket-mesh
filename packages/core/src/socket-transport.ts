@@ -11,7 +11,7 @@ import { RequestHandlerArgs } from './request-handler.js';
 import { abortRequest, AnyRequest, InvokeMethodRequest, InvokeServiceRequest, isRequestDone, TransmitMethodRequest, TransmitServiceRequest } from './request.js';
 import { AnyResponse, isResponsePacket, MethodDataResponse } from './response.js';
 import { Socket, SocketOptions, SocketStatus, StreamCleanupMode } from './socket.js';
-import { toArray, wait } from './utils.js';
+import { toArray, toError, wait } from './utils.js';
 
 export type CallIdGenerator = () => number;
 
@@ -146,11 +146,13 @@ export class SocketTransport<
 		try {
 			return this.codecEngine.decode(data as string);
 		} catch (err) {
-			if (err.name === 'Error') {
-				err.name = 'InvalidMessageError';
+			const error = toError(err);
+
+			if (error.name === 'Error') {
+				error.name = 'InvalidMessageError';
 			}
 
-			this.onError(err);
+			this.onError(error);
 			return null;
 		}
 	}
