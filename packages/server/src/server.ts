@@ -1,8 +1,8 @@
 import { AsyncStreamEmitter } from '@socket-mesh/async-stream-emitter';
 import { AuthEngine, defaultAuthEngine, isAuthEngine } from '@socket-mesh/auth-engine';
 import { ChannelMap } from '@socket-mesh/channels';
-import { ClientPrivateMap, ClientSocket, removeAuthTokenHandler, ServerPrivateMap } from '@socket-mesh/client';
-import { AnyPacket, CallIdGenerator, HandlerMap, PrivateMethodMap, PublicMethodMap, ServiceMap, StreamCleanupMode, toError } from '@socket-mesh/core';
+import { ClientPrivateMap, removeAuthTokenHandler, ServerPrivateMap } from '@socket-mesh/client';
+import { CallIdGenerator, HandlerMap, PrivateMethodMap, PublicMethodMap, ServiceMap, StreamCleanupMode, toError } from '@socket-mesh/core';
 import { ServerProtocolError } from '@socket-mesh/errors';
 import defaultCodec, { CodecEngine } from '@socket-mesh/formatter';
 import { DemuxedConsumableStream, StreamEvent } from '@socket-mesh/stream-demux';
@@ -327,7 +327,6 @@ export class Server<
 			callIdGenerator: this._callIdGenerator,
 			codecEngine: this.codecEngine,
 			handlers: this._handlers,
-			onUnhandledRequest: this.onUnhandledRequest.bind(this),
 			plugins: this.plugins,
 			request: upgradeReq,
 			server: this,
@@ -363,15 +362,6 @@ export class Server<
 		this._isListening = true;
 
 		this.emit('listening', {});
-	}
-
-	private onUnhandledRequest(
-		socket:
-			ClientSocket<PublicMethodMap, TChannel, TService, TState, TOutgoing & TPrivateOutgoing, TPrivateIncoming>
-			| ServerSocket<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>,
-		packet: AnyPacket<TIncoming & TPrivateIncoming & ServerPrivateMap, TService>
-	): boolean {
-		return false;
 	}
 
 	private socketDisconnected(
