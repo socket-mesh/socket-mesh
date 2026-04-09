@@ -1,5 +1,6 @@
 import { AuthToken, SignedAuthToken } from '@socket-mesh/auth';
 import { AuthEngine } from '@socket-mesh/auth-engine';
+import { toError } from '@socket-mesh/core';
 import { AuthTokenError, AuthTokenExpiredError, AuthTokenInvalidError, AuthTokenNotBeforeError, InvalidActionError } from '@socket-mesh/errors';
 import jwt from 'jsonwebtoken';
 
@@ -75,19 +76,21 @@ export async function processAuthentication(
 	return await transport.setAuthorization(authInfo.signedAuthToken, authInfo.authToken);
 }
 
-function processTokenError(err: jwt.VerifyErrors): AuthTokenError {
-	if (err.name === 'TokenExpiredError' && 'expiredAt' in err) {
+function processTokenError(err: unknown): AuthTokenError {
+	if (err instanceof jwt.TokenExpiredError) {
 		return new AuthTokenExpiredError(err.message, err.expiredAt);
 	}
-	if (err.name === 'JsonWebTokenError') {
-		return new AuthTokenInvalidError(err.message);
-	}
-	if (err.name === 'NotBeforeError' && 'date' in err) {
+
+	if (err instanceof jwt.NotBeforeError) {
 		// In this case, the token is good; it's just not active yet.
 		return new AuthTokenNotBeforeError(err.message, err.date);
 	}
 
-	return new AuthTokenError(err.message);
+	if (err instanceof jwt.JsonWebTokenError) {
+		return new AuthTokenInvalidError(err.message);
+	}
+
+	return new AuthTokenError(toError(err).message);
 }
 
 export async function validateAuthToken(
