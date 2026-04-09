@@ -52,7 +52,7 @@ export class Server<
 	public ackTimeoutMs: number;
 	public allowClientPublish: boolean;
 	public readonly auth: AuthEngine;
-	public readonly brokerEngine: Broker<TChannel>;
+	public readonly brokerEngine!: Broker<TChannel>;
 	public clientCount: number;
 	public readonly clients: { [ id: string ]: ServerSocket<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState> };
 	public readonly codecEngine: CodecEngine;
@@ -310,6 +310,7 @@ export class Server<
 		return event ? super.listen(event) : super.listen();
 	}
 
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	private onClose(code: string, reason: Buffer): void {
 		this.emit('close', {});
 	}
@@ -369,8 +370,8 @@ export class Server<
 			ClientSocket<PublicMethodMap, TChannel, TService, TState, TOutgoing & TPrivateOutgoing, TPrivateIncoming>
 			| ServerSocket<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>,
 		packet: AnyPacket<TIncoming & TPrivateIncoming & ServerPrivateMap, TService>
-	): void {
-
+	): boolean {
+		return false;
 	}
 
 	private socketDisconnected(
