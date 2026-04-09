@@ -5,10 +5,6 @@ import { describe, it } from 'node:test';
 import codec from '../src/index.js';
 
 describe('formatter', function () {
-	const ab2str = function (buf: ArrayBuffer): string {
-		return String.fromCharCode.apply(null, new Uint8Array(buf));
-	};
-
 	const str2ab = function (str: string): ArrayBuffer {
 		const buf = new ArrayBuffer(str.length);
 		const bufView = new Uint8Array(buf);
@@ -108,7 +104,7 @@ describe('formatter', function () {
 			try {
 				codec.encode(rawObject);
 			} catch (err) {
-				error = toError(err);
+				error = err instanceof Error ? err : new Error(String(err));
 			}
 			assert(error != null, 'Expected an error to be thrown');
 		});
