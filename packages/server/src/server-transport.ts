@@ -2,7 +2,7 @@ import { AuthToken, SignedAuthToken } from '@socket-mesh/auth';
 import { AuthTokenOptions } from '@socket-mesh/auth-engine';
 import { ChannelMap, PublishOptions } from '@socket-mesh/channels';
 import { ClientPrivateMap, ServerPrivateMap } from '@socket-mesh/client';
-import { abortRequest, AnyPacket, AnyResponse, InboundMessage, InvokeMethodRequest, InvokeServiceRequest, PrivateMethodMap, PublicMethodMap, ServiceMap, SocketStatus, SocketTransport, toError, TransmitMethodRequest, TransmitServiceRequest } from '@socket-mesh/core';
+import { abortRequest, AnyPacket, AnyRequest, AnyResponse, InboundMessage, PrivateMethodMap, PublicMethodMap, ServiceMap, SocketStatus, SocketTransport, toError } from '@socket-mesh/core';
 import { AuthError, BrokerError, InvalidActionError, SocketProtocolErrorStatuses } from '@socket-mesh/errors';
 import base64id from 'base64id';
 import { IncomingMessage } from 'http';
@@ -135,11 +135,7 @@ export class ServerTransport<
 		this.socket.server.emit('socketError', { error, socket: this.socket });
 	}
 
-	protected override onInvoke<
-		TServiceName extends keyof TService,
-		TServiceMethod extends keyof TService[TServiceName],
-		TMethod extends keyof TOutgoing, TPrivateMethod extends keyof TPrivateOutgoing
-	>(request: InvokeMethodRequest<TOutgoing, TMethod> | InvokeMethodRequest<TPrivateOutgoing, TPrivateMethod> | InvokeServiceRequest<TService, TServiceName, TServiceMethod>): void {
+	protected override onInvoke(request: AnyRequest<TOutgoing, TPrivateOutgoing & ClientPrivateMap, TService>): void {
 		if (request.method !== '#publish') {
 			super.onInvoke(request);
 			return;
@@ -150,7 +146,7 @@ export class ServerTransport<
 				super.onInvoke(request);
 			})
 			.catch((err) => {
-				abortRequest(request as InvokeMethodRequest<TOutgoing, TMethod>, err);
+				abortRequest(request, err);
 			});
 	}
 
@@ -220,11 +216,7 @@ export class ServerTransport<
 		this.socket.server.emit('socketResponse', { response, socket: this.socket });
 	}
 
-	protected override onTransmit<
-		TServiceName extends keyof TService,
-		TServiceMethod extends keyof TService[TServiceName],
-		TMethod extends keyof TOutgoing
-	>(request: TransmitMethodRequest<TOutgoing, TMethod> | TransmitServiceRequest<TService, TServiceName, TServiceMethod>): void {
+	protected override onTransmit(request: AnyRequest<TOutgoing, TPrivateOutgoing & ClientPrivateMap, TService>): void {
 		if (request.method !== '#publish') {
 			super.onTransmit(request);
 			return;
@@ -234,7 +226,7 @@ export class ServerTransport<
 				super.onTransmit(request);
 			})
 			.catch((err) => {
-				abortRequest(request as TransmitMethodRequest<TOutgoing, TMethod>, err);
+				abortRequest(request, err);
 			});
 	}
 
