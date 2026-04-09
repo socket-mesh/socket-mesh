@@ -1,3 +1,4 @@
+import { toError } from '@socket-mesh/core';
 import assert from 'node:assert';
 import { describe, it } from 'node:test';
 
@@ -85,7 +86,7 @@ describe('formatter', function () {
 			try {
 				codec.encode(rawObject);
 			} catch (err) {
-				error = err;
+				error = toError(err);
 			}
 
 			assert(error != null, 'Expected an error to be thrown');
@@ -107,7 +108,7 @@ describe('formatter', function () {
 			try {
 				codec.encode(rawObject);
 			} catch (err) {
-				error = err;
+				error = toError(err);
 			}
 			assert(error != null, 'Expected an error to be thrown');
 		});
