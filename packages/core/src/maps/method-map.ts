@@ -32,3 +32,5 @@ export type RemoveIndexSignature<T> = {
 };
 
 export type ServiceMap = { [service: string]: MethodMap };
+
+export type ServiceName<TService extends ServiceMap> = string & keyof TService;
