@@ -57,6 +57,20 @@ export interface ConnectOptions {
 	wsOptions?: ws.ClientOptions
 }
 
+export function parseAutoReconnectOptions(value?: boolean | Partial<AutoReconnectOptions>): AutoReconnectOptions | false {
+	if (value) {
+		return {
+			initialDelay: 10000,
+			maxDelayMs: 60000,
+			multiplier: 1.5,
+			randomness: 10000,
+			...(value === true ? {} : value)
+		};
+	}
+
+	return false;
+}
+
 export function parseClientOptions<
 	TIncoming extends MethodMap,
 	TService extends ServiceMap,

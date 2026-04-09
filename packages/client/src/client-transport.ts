@@ -4,7 +4,7 @@ import { HandshakeError, hydrateError, SocketClosedError, SocketProtocolErrorSta
 import ws from 'isomorphic-ws';
 
 import { ClientAuthEngine, isAuthEngine, LocalStorageAuthEngine } from './client-auth-engine.js';
-import { AutoReconnectOptions, ClientSocketOptions, ConnectOptions } from './client-socket-options.js';
+import { AutoReconnectOptions, ClientSocketOptions, ConnectOptions, parseAutoReconnectOptions } from './client-socket-options.js';
 import { ClientPrivateMap } from './maps/client-map.js';
 import { HandshakeStatus, ServerPrivateMap } from './maps/server-map.js';
 
@@ -24,13 +24,13 @@ export class ClientTransport<
 	private _autoReconnect: AutoReconnectOptions | false;
 
 	private _connectAttempts: number;
-	private _connectTimeoutRef: NodeJS.Timeout | null;
+	private _connectTimeoutRef: NodeJS.Timeout | null = null;
 
 	private _pendingReconnectTimeout: null | number;
 	private _pingTimeoutMs: number;
 
 	private _uri: URL;
-	private _wsOptions: ws.ClientOptions;
+	private _wsOptions!: ws.ClientOptions;
 	public readonly authEngine: ClientAuthEngine;
 	public connectTimeoutMs: number;
 	public isPingTimeoutDisabled: boolean;
@@ -61,7 +61,7 @@ export class ClientTransport<
 
 		this._connectAttempts = 0;
 		this._pendingReconnectTimeout = null;
-		this.autoReconnect = options.autoReconnect ?? false;
+		this._autoReconnect = parseAutoReconnectOptions(options.autoReconnect);
 		this.isPingTimeoutDisabled = (options.isPingTimeoutDisabled === true);
 	}
 
@@ -70,17 +70,7 @@ export class ClientTransport<
 	}
 
 	public set autoReconnect(value: boolean | Partial<AutoReconnectOptions>) {
-		if (value) {
-			this._autoReconnect = {
-				initialDelay: 10000,
-				maxDelayMs: 60000,
-				multiplier: 1.5,
-				randomness: 10000,
-				...(value === true ? {} : value)
-			};
-		} else {
-			this._autoReconnect = false;
-		}
+		this._autoReconnect = parseAutoReconnectOptions(value);
 	}
 
 	public connect(options?: ConnectOptions) {

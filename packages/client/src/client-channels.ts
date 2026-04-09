@@ -189,7 +189,7 @@ export class ClientChannels<
 			// the operation on the server side.
 			this._transport
 				.transmit('#unsubscribe', decoratedChannelName)
-				.catch((err) => {});
+				.catch((_) => {});
 		}
 	}
 
