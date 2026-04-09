@@ -34,11 +34,11 @@ export abstract class Consumer<T, TReturn = T> {
 		this.stream.setConsumer(this.id, this);
 	}
 
-	applyBackpressure(packet: IteratorResult<T, TReturn>): void {
+	applyBackpressure(_: IteratorResult<T, TReturn>): void {
 		this._backpressure++;
 	}
 
-	clearActiveTimeout(packet?: IteratorResult<T, TReturn | undefined>) {
+	clearActiveTimeout(_?: IteratorResult<T, TReturn | undefined>) {
 		if (this._timeoutId !== undefined) {
 			clearTimeout(this._timeoutId);
 			delete this._timeoutId;
@@ -81,7 +81,7 @@ export abstract class Consumer<T, TReturn = T> {
 		}
 	}
 
-	releaseBackpressure(packet: IteratorResult<T, TReturn>): void {
+	releaseBackpressure(_: IteratorResult<T, TReturn>): void {
 		this._backpressure--;
 	}
 
