@@ -28,6 +28,7 @@ export class InOrderPlugin<
 	constructor() {
 		this._inboundMessageStream = new WritableConsumableStream<InboundMessage<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>>();
 		// this._outboundMessageStream = new WritableConsumableStream<SendRequestPluginArgs<T>>;
+		this.type = 'inOrder';
 		this.handleInboundMessageStream();
 		// this.handleOutboundMessageStream();
 	}
