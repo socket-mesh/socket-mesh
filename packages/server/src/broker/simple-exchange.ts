@@ -5,11 +5,13 @@ import { Exchange } from './exchange.js';
 
 export class SimpleExchange<T extends ChannelMap> extends Exchange<T> {
 	private readonly _broker: Broker<T>;
-	readonly id: string;
 
 	constructor(broker: Broker<T>, options?: ChannelsOptions) {
-		super(options);
-		this.id = 'exchange';
+		super({
+			...(options || {}),
+			id: 'exchange'
+		});
+
 		this._broker = broker;
 	}
 
