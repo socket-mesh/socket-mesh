@@ -78,8 +78,10 @@ export class SocketTransport<
 	protected constructor(options?: SocketOptions<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>) {
 		let cid = 1;
 
+		this._isReady = false;
 		this._authToken = null;
 		this._signedAuthToken = null;
+		this._webSocket = null;
 
 		this.ackTimeoutMs = options?.ackTimeoutMs ?? 10000;
 
@@ -196,7 +198,7 @@ export class SocketTransport<
 					}
 				}
 			} catch (err) {
-				pluginError = err;
+				pluginError = toError(err);
 			}
 
 			// Check to see if it is a request or response packet.
@@ -499,7 +501,7 @@ export class SocketTransport<
 						response = { data, rid: packet.cid, timeoutAt } as MethodDataResponse<TIncoming>;
 					}
 				} catch (err) {
-					error = err;
+					error = toError(err);
 
 					if (packet.cid) {
 						response = { error, rid: packet.cid, timeoutAt };
@@ -570,7 +572,7 @@ export class SocketTransport<
 		this.sendRequest([request as TransmitMethodRequest<TOutgoing, TMethod>]);
 	}
 
-	protected onUnhandledRequest(packet: AnyPacket<TIncoming, TService>): boolean {
+	protected onUnhandledRequest(_: AnyPacket<TIncoming, TService>): boolean {
 		return false;
 	}
 
@@ -649,8 +651,10 @@ export class SocketTransport<
 						transport: this
 					});
 				} catch (err) {
+					const error = toError(err);
+
 					for (const req of requests) {
-						abortRequest(req, err);
+						abortRequest(req, error);
 					}
 				}
 
@@ -763,7 +767,7 @@ export class SocketTransport<
 
 		// If the socket is closed we need to call them back with an error.
 		if (this.status === 'closed') {
-			for (const response of responses) {
+			for (const _ of responses) {
 				this.onError(new Error(`WebSocket is not open: readyState 3 (CLOSED)`));
 			}
 			return;
