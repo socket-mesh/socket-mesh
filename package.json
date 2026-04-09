@@ -8,6 +8,8 @@
 		"deploy": "turbo run deploy",
 		"generate:cert": "node ./scripts/generate-cert.mjs",
 		"generate:jwt": "node ./scripts/generate-jwt.mjs",
+		"lint": "turbo run lint",
+		"lint:fix": "turbo run lint:fix",
 		"prune": "node scripts/prune.mjs",
 		"test": "turbo run test"
 	},
