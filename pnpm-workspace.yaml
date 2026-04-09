@@ -39,7 +39,7 @@ catalogs:
 
   secure-data-systems:
     "@secure-data-systems/eslint-config": 1.0.33
-    "@secure-data-systems/tsconfig": 1.0.2
+    "@secure-data-systems/tsconfig": 1.0.5
 
   ws:
     isomorphic-ws: ^5.0.0

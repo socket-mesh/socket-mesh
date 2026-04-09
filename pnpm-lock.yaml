@@ -79,8 +79,8 @@ catalogs:
       specifier: 1.0.33
       version: 1.0.33
     '@secure-data-systems/tsconfig':
-      specifier: 1.0.2
-      version: 1.0.2
+      specifier: 1.0.5
+      version: 1.0.5
   ws:
     '@types/ws':
       specifier: ^8.18.1
@@ -105,7 +105,7 @@ importers:
         version: 1.0.33(typescript@5.9.3)
       '@secure-data-systems/tsconfig':
         specifier: catalog:secure-data-systems
-        version: 1.0.2
+        version: 1.0.5
       '@types/node':
         specifier: catalog:node
         version: 25.4.0
@@ -883,8 +883,8 @@ packages:
   '@secure-data-systems/eslint-config@1.0.33':
     resolution: {integrity: sha512-m+TY6YyvQb6kc1hTnlH6o8IrbBENbs5PajrTnL2bQROhS8ctmfoZ0fvU+NJfuFoL+MtBpJHgJlRrMxj+FP+ycQ==}
 
-  '@secure-data-systems/tsconfig@1.0.2':
-    resolution: {integrity: sha512-0rsc2XK6qI+hcJ5iy7bgPD+t+5rPYh1zr6SsOtu59vajjkCpf1bVtX9Bx16KkGitt8POL4X2M8ieK66kjHqb1A==}
+  '@secure-data-systems/tsconfig@1.0.5':
+    resolution: {integrity: sha512-q0UBi5MfAbgZMTrb19vycMi3sUJotE9MB5f5zglSWcr/pwIYkrpxI5P3VCLNGuQcfEgrOu255QvQ5lqdK/WujQ==}
 
   '@sindresorhus/merge-streams@2.3.0':
     resolution: {integrity: sha512-LtoMMhxAlorcGhmFYI+LhPgbPZCkgP6ra1YL604EeF6U98pLlQ3iWIGMdWSC+vWmPBWBNgmDBAhnAobLROJmwg==}
@@ -2440,7 +2440,7 @@ snapshots:
   '@secure-data-systems/eslint-config@1.0.33(typescript@5.9.3)':
     dependencies:
       '@eslint/eslintrc': 3.3.1
-      '@secure-data-systems/tsconfig': 1.0.2
+      '@secure-data-systems/tsconfig': 1.0.5
       '@stylistic/eslint-plugin': 5.10.0(eslint@9.39.4)
       eslint: 9.39.4
       eslint-plugin-perfectionist: 4.15.1(eslint@9.39.4)(typescript@5.9.3)
@@ -2452,7 +2452,7 @@ snapshots:
       - supports-color
       - typescript
 
-  '@secure-data-systems/tsconfig@1.0.2': {}
+  '@secure-data-systems/tsconfig@1.0.5': {}
 
   '@sindresorhus/merge-streams@2.3.0': {}
 
