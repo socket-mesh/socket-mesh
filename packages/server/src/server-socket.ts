@@ -75,7 +75,9 @@ export class ServerSocket<
 		if (rejectOnFailedDelivery) {
 			try {
 				await this._serverTransport.invoke('#removeAuthToken', undefined)[0];
-			} catch (error) {
+			} catch (err) {
+				const error = toError(err);
+
 				this._serverTransport.onError(error);
 				throw error;
 			}
