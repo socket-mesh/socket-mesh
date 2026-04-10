@@ -4,7 +4,7 @@ import defaultCodec, { CodecEngine } from '@socket-mesh/formatter';
 import ws from 'isomorphic-ws';
 
 import { HandlerMap } from './maps/handler-map.js';
-import { FunctionReturnType, MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap } from './maps/method-map.js';
+import { FunctionReturnType, MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap, ServiceMethodName, ServiceName } from './maps/method-map.js';
 import { AnyPacket, isRequestPacket, MethodPacket } from './packet.js';
 import { Plugin } from './plugins/plugin.js';
 import { RequestHandlerArgs } from './request-handler.js';
@@ -66,7 +66,7 @@ export class SocketTransport<
 	private _outboundSentMessageCount: number;
 	private _pingTimeoutRef: NodeJS.Timeout | null;
 	private _signedAuthToken: null | SignedAuthToken;
-	private _socket: Socket<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>;
+	private _socket!: Socket<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>;
 	private _webSocket: null | ws.WebSocket;
 	public ackTimeoutMs: number;
 	public readonly codecEngine: CodecEngine;
@@ -214,9 +214,9 @@ export class SocketTransport<
 
 	public invoke<TMethod extends keyof TOutgoing>(
 		method: TMethod, arg?: Parameters<TOutgoing[TMethod]>[0]): [Promise<FunctionReturnType<TOutgoing[TMethod]>>, () => void];
-	public invoke<TServiceName extends keyof TService, TMethod extends keyof TService[TServiceName]>(
+	public invoke<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(
 		options: [TServiceName, TMethod, (false | number)?], arg?: Parameters<TService[TServiceName][TMethod]>[0]): [Promise<FunctionReturnType<TService[TServiceName][TMethod]>>, () => void];
-	public invoke<TServiceName extends keyof TService, TMethod extends keyof TService[TServiceName]>(
+	public invoke<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(
 		options: InvokeServiceOptions<TService, TServiceName, TMethod>, arg?: Parameters<TService[TServiceName][TMethod]>[0]): [Promise<FunctionReturnType<TService[TServiceName][TMethod]>>, () => void];
 	public invoke<TMethod extends keyof TOutgoing>(
 		options: InvokeMethodOptions<TOutgoing, TMethod>, arg?: Parameters<TOutgoing[TMethod]>[0]): [Promise<FunctionReturnType<TOutgoing[TMethod]>>, () => void];
@@ -225,8 +225,8 @@ export class SocketTransport<
 	public invoke<TMethod extends keyof TPrivateOutgoing>(
 		options: InvokeMethodOptions<TPrivateOutgoing, TMethod>, arg?: Parameters<TPrivateOutgoing[TMethod]>[0]): [Promise<FunctionReturnType<TPrivateOutgoing[TMethod]>>, () => void];
 	public invoke<
-		TServiceName extends keyof TService,
-		TServiceMethod extends keyof TService[TServiceName],
+		TServiceName extends ServiceName<TService>,
+		TServiceMethod extends ServiceMethodName<TService, TServiceName>,
 		TMethod extends keyof TOutgoing,
 		TPrivateMethod extends keyof TPrivateOutgoing
 	>(
@@ -305,7 +305,7 @@ export class SocketTransport<
 				}
 			};
 
-			baseRequest.callback = (err: Error | null, result: FunctionReturnType<TOutgoing[TMethod] | TService[TServiceName][TServiceMethod]>) => {
+			baseRequest.callback = (err: Error | null, result?: TOutgoing[TMethod] | TPrivateOutgoing[TPrivateMethod] | TService[TServiceName][TServiceMethod]) => {
 				delete callbackMap[baseRequest.cid];
 				baseRequest.callback = null;
 
@@ -319,7 +319,7 @@ export class SocketTransport<
 					return;
 				}
 
-				resolve(result);
+				resolve(result as FunctionReturnType<TOutgoing[TMethod] | TPrivateOutgoing[TPrivateMethod] | TService[TServiceName][TServiceMethod]>);
 			};
 
 			baseRequest.sentCallback = () => {
@@ -332,7 +332,7 @@ export class SocketTransport<
 
 		const request = Object.assign(baseRequest, { promise });
 
-		this.onInvoke(request);
+		this.onInvoke(request as AnyRequest<TOutgoing, TPrivateOutgoing, TService>);
 
 		return [promise, abort!];
 	}
@@ -391,15 +391,8 @@ export class SocketTransport<
 		this._socket.emit('error', { error });
 	}
 
-	protected onInvoke<
-		TServiceName extends keyof TService,
-		TServiceMethod extends keyof TService[TServiceName],
-		TMethod extends keyof TOutgoing,
-		TPrivateMethod extends keyof TPrivateOutgoing
-	>(
-		request: InvokeMethodRequest<TOutgoing, TMethod> | InvokeMethodRequest<TPrivateOutgoing, TPrivateMethod> | InvokeServiceRequest<TService, TServiceName, TServiceMethod>
-	): void {
-		this.sendRequest([request as AnyRequest<TOutgoing, TPrivateOutgoing, TService>]);
+	protected onInvoke(request: AnyRequest<TOutgoing, TPrivateOutgoing, TService>): void {
+		this.sendRequest([request]);
 	}
 
 	protected onMessage(data: ws.Data, isBinary: boolean): void {
@@ -562,14 +555,8 @@ export class SocketTransport<
 		this.onMessage(event.data, false);
 	}
 
-	protected onTransmit<
-		TServiceName extends keyof TService,
-		TServiceMethod extends keyof TService[TServiceName],
-		TMethod extends keyof TOutgoing
-	>(
-		request: TransmitMethodRequest<TOutgoing, TMethod> | TransmitServiceRequest<TService, TServiceName, TServiceMethod>
-	): void {
-		this.sendRequest([request as TransmitMethodRequest<TOutgoing, TMethod>]);
+	protected onTransmit(request: AnyRequest<TOutgoing, TPrivateOutgoing, TService>): void {
+		this.sendRequest([request]);
 	}
 
 	protected onUnhandledRequest(_: AnyPacket<TIncoming, TService>): boolean {
@@ -682,7 +669,7 @@ export class SocketTransport<
 				const { callback, promise, timeoutId, ...rest } = req;
 
 				this._callbackMap[req.cid] = {
-					callback: req.callback,
+					callback: req.callback as InvokeCallback<unknown>['callback'],
 					method: ['service' in req ? req.service : '', req.method].filter(Boolean).join('.'),
 					timeoutId: req.timeoutId
 				};
@@ -864,13 +851,13 @@ export class SocketTransport<
 
 	public transmit<TMethod extends keyof TOutgoing>(
 		method: TMethod, arg?: Parameters<TOutgoing[TMethod]>[0]): Promise<void>;
-	public transmit<TServiceName extends keyof TService, TMethod extends keyof TService[TServiceName]>(
+	public transmit<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(
 		options: [TServiceName, TMethod], arg?: Parameters<TService[TServiceName][TMethod]>[0]): Promise<void>;
 	public transmit<TMethod extends keyof TPrivateOutgoing>(
 		method: TMethod, arg?: Parameters<TPrivateOutgoing[TMethod]>[0]): Promise<void>;
 	public transmit<
-		TServiceName extends keyof TService,
-		TServiceMethod extends keyof TService[TServiceName],
+		TServiceName extends ServiceName<TService>,
+		TServiceMethod extends ServiceMethodName<TService, TServiceName>,
 		TMethod extends keyof TOutgoing
 	>(
 		serviceAndMethod: [TServiceName, TServiceMethod] | TMethod,
