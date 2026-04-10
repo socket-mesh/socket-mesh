@@ -3,9 +3,9 @@ import { ChannelMap } from '@socket-mesh/channels';
 import {
 	AuthenticateEvent, AuthStateChangeEvent, BadAuthTokenEvent, BaseSocket, CloseEvent,
 	ConnectEvent, ConnectingEvent, DeauthenticateEvent, DisconnectEvent, ErrorEvent,
-	FunctionReturnType, InvokeMethodOptions, InvokeServiceOptions, MessageEvent, MethodMap,
+	FunctionReturnType, InvokeMethodOptions, InvokeServiceOptions, MessageEvent,
 	PingEvent, PongEvent, PrivateMethodMap, PublicMethodMap, RemoveAuthTokenEvent, RequestEvent,
-	ResponseEvent, ServiceMap, ServiceMethodName, ServiceName, SocketEvent, toError,
+	ResponseEvent, ServiceMap, ServiceMethodName, ServiceName, Socket, SocketEvent, toError,
 	TypedRequestEvent, TypedResponseEvent, TypedSocketEvent, wait
 } from '@socket-mesh/core';
 import { hydrateError } from '@socket-mesh/errors';
@@ -26,9 +26,16 @@ export class ClientSocket<
 	TChannel extends ChannelMap = ChannelMap,
 	TService extends ServiceMap = {},
 	TState extends object = {},
-	TIncoming extends MethodMap = {},
+	TIncoming extends PublicMethodMap = {},
 	TPrivateOutgoing extends PrivateMethodMap = {}
-> extends BaseSocket<TState> {
+> extends BaseSocket<TState> implements Socket<
+	TIncoming & ClientPrivateMap,
+	TOutgoing,
+	TState,
+	TService,
+	{},
+	TPrivateOutgoing & ServerPrivateMap
+> {
 	private readonly _clientTransport: ClientTransport<TState>;
 	public readonly channels: ClientChannels<TChannel, TState>;
 

@@ -3,9 +3,9 @@ import { ClientPrivateMap, ServerPrivateMap } from '@socket-mesh/client';
 import {
 	AuthenticateEvent, AuthStateChangeEvent, BadAuthTokenEvent, BaseSocket, BaseSocketOptions,
 	CloseEvent, ConnectEvent, ConnectingEvent, DeauthenticateEvent, DisconnectEvent, ErrorEvent,
-	FunctionReturnType, HandlerMap, InvokeMethodOptions, InvokeServiceOptions, MessageEvent,
+	FunctionReturnType, InvokeMethodOptions, InvokeServiceOptions, LooseHandlerMap, MessageEvent,
 	PingEvent, PongEvent, PrivateMethodMap, PublicMethodMap, RemoveAuthTokenEvent, RequestEvent,
-	ResponseEvent, ServiceMap, ServiceMethodName, ServiceName, SocketEvent, toError,
+	ResponseEvent, ServiceMap, ServiceMethodName, ServiceName, Socket, SocketEvent, toError,
 	TypedRequestEvent, TypedResponseEvent, TypedSocketEvent
 } from '@socket-mesh/core';
 import { DemuxedConsumableStream, StreamEvent } from '@socket-mesh/stream-demux';
@@ -28,12 +28,7 @@ export interface ServerSocketOptions<
 	TServerState extends object,
 	TState extends object
 > extends BaseSocketOptions<TState & ServerSocketState> {
-	handlers: HandlerMap<
-		TIncoming & TPrivateIncoming & ServerPrivateMap,
-		TState & ServerSocketState,
-		ServerSocket<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>,
-		ServerTransport<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
-	>,
+	handlers: LooseHandlerMap,
 	id?: string,
 	plugins?: ServerPlugin<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>[],
 	request: IncomingMessage,
@@ -51,7 +46,15 @@ export class ServerSocket<
 	TPrivateOutgoing extends PrivateMethodMap = {},
 	TServerState extends object = {},
 	TState extends object = {}
-> extends BaseSocket<TState & ServerSocketState> {
+> extends BaseSocket<TState & ServerSocketState>
+	implements Socket<
+		TIncoming & TPrivateIncoming & ServerPrivateMap,
+		TOutgoing,
+		TState & ServerSocketState,
+		TService,
+		{},
+		TPrivateOutgoing & ClientPrivateMap
+	> {
 	private _serverTransport: ServerTransport<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
 	public readonly server: Server<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
 

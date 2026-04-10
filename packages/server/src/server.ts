@@ -1,8 +1,8 @@
 import { AsyncStreamEmitter } from '@socket-mesh/async-stream-emitter';
 import { AuthEngine, defaultAuthEngine, isAuthEngine } from '@socket-mesh/auth-engine';
 import { ChannelMap } from '@socket-mesh/channels';
-import { removeAuthTokenHandler, ServerPrivateMap } from '@socket-mesh/client';
-import { CallIdGenerator, HandlerMap, PrivateMethodMap, PublicMethodMap, ServiceMap, StreamCleanupMode, toError } from '@socket-mesh/core';
+import { removeAuthTokenHandler } from '@socket-mesh/client';
+import { CallIdGenerator, LooseHandlerMap, PrivateMethodMap, PublicMethodMap, ServiceMap, StreamCleanupMode, toError } from '@socket-mesh/core';
 import { ServerProtocolError } from '@socket-mesh/errors';
 import defaultCodec, { CodecEngine } from '@socket-mesh/formatter';
 import { DemuxedConsumableStream, StreamEvent } from '@socket-mesh/stream-demux';
@@ -20,9 +20,7 @@ import { subscribeHandler } from './handlers/subscribe.js';
 import { unsubscribeHandler } from './handlers/unsubscribe.js';
 import { ServerPlugin } from './plugin/server-plugin.js';
 import { ServerOptions } from './server-options.js';
-import { ServerSocketState } from './server-socket-state.js';
 import { ServerSocket } from './server-socket.js';
-import { ServerTransport } from './server-transport.js';
 
 export class Server<
 	TIncoming extends PublicMethodMap = {},
@@ -35,13 +33,7 @@ export class Server<
 	TState extends object = {}
 > extends AsyncStreamEmitter<ServerEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>> {
 	private readonly _callIdGenerator: CallIdGenerator;
-	private _handlers:
-	HandlerMap<
-			TIncoming & TPrivateIncoming & ServerPrivateMap,
-			TState & ServerSocketState,
-			ServerSocket<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>,
-			ServerTransport<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
-	>;
+	private _handlers: LooseHandlerMap;
 
 	private _isListening: boolean;
 	private _isReady: boolean;

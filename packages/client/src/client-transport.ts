@@ -1,5 +1,5 @@
 import { AuthToken } from '@socket-mesh/auth';
-import { BaseSocketTransport, InvokeMethodOptions, InvokeServiceOptions, SocketStatus, toError } from '@socket-mesh/core';
+import { BaseSocketTransport, InvokeMethodOptions, InvokeServiceOptions, SocketStatus, SocketTransport, toError } from '@socket-mesh/core';
 import { HandshakeError, hydrateError, SocketClosedError, SocketProtocolErrorStatuses } from '@socket-mesh/errors';
 import ws from 'isomorphic-ws';
 
@@ -9,7 +9,7 @@ import { HandshakeStatus } from './maps/server-map.js';
 
 export class ClientTransport<
 	TState extends object = {}
-> extends BaseSocketTransport<TState> {
+> extends BaseSocketTransport<TState> implements SocketTransport<{}, {}, TState> {
 	private _autoReconnect: AutoReconnectOptions | false;
 
 	private _connectAttempts: number;
