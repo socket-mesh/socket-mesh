@@ -1,45 +1,55 @@
 import { MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap } from './maps/method-map.js';
 
-export type AnyResponse<
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap
-> =
-	ErrorResponse | MethodDataResponse<TOutgoing> | MethodDataResponse<TPrivateOutgoing> | Response | ServiceDataResponse<TService>;
+export type AnyResponse = DataResponse | ErrorResponse | Response;
 
-export interface DataResponse<T> extends Response {
-	data: T
+export interface DataResponse extends Response {
+	data: unknown
 }
 
 export interface ErrorResponse extends Response {
 	error: Error
 }
 
-export type MethodDataResponse<TMethodMap extends MethodMap> =
+export interface OutgoingDataResponse<T> extends Response {
+	data: T
+}
+
+export type OutgoingMethodDataResponse<TMethodMap extends MethodMap> =
 	{ [TMethod in keyof TMethodMap]:
-		DataResponse<ReturnType<TMethodMap[TMethod]>>
+		OutgoingDataResponse<ReturnType<TMethodMap[TMethod]>>
 	}[keyof TMethodMap];
+
+// Typed response variants for use in subclass typed event APIs.
+// These are structurally assignable to AnyResponse so existing
+// runtime/transport code that operates on AnyResponse continues to work.
+
+export type OutgoingResponse<
+	TOutgoing extends PublicMethodMap,
+	TPrivateOutgoing extends PrivateMethodMap,
+	TService extends ServiceMap
+> =
+	ErrorResponse
+	| OutgoingMethodDataResponse<TOutgoing>
+	| OutgoingMethodDataResponse<TPrivateOutgoing>
+	| OutgoingServiceDataResponse<TService>
+	| Response;
+
+export type OutgoingServiceDataResponse<TServiceMap extends ServiceMap> =
+	{ [TService in keyof TServiceMap]:
+		{ [TMethod in keyof TServiceMap[TService]]:
+			OutgoingDataResponse<ReturnType<TServiceMap[TService][TMethod]>>
+		}[keyof TServiceMap[TService]]
+	}[keyof TServiceMap];
 
 export interface Response {
 	rid: number,
 	timeoutAt?: Date
 }
 
-export type ServiceDataResponse<TServiceMap extends ServiceMap> =
-	{ [TService in keyof TServiceMap]:
-		{ [TMethod in keyof TServiceMap[TService]]:
-			DataResponse<ReturnType<TServiceMap[TService][TMethod]>>
-		}[keyof TServiceMap[TService]]
-	}[keyof TServiceMap];
-
-export function isResponsePacket<
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap
->(packet?: unknown): packet is AnyResponse<TOutgoing, TPrivateOutgoing, TService> {
+export function isResponsePacket(packet?: unknown): packet is AnyResponse {
 	return (
 		packet !== null
 		&& typeof packet === 'object'
-		&& 'rid' in packet
+		&& 'rid' in (packet as object)
 	);
 }

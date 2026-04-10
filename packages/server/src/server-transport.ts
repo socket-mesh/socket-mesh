@@ -2,7 +2,7 @@ import { AuthToken, SignedAuthToken } from '@socket-mesh/auth';
 import { AuthTokenOptions } from '@socket-mesh/auth-engine';
 import { ChannelMap, PublishOptions } from '@socket-mesh/channels';
 import { ClientPrivateMap, ServerPrivateMap } from '@socket-mesh/client';
-import { abortRequest, AnyPacket, AnyRequest, AnyResponse, InboundMessage, PrivateMethodMap, PublicMethodMap, ServiceMap, SocketStatus, SocketTransport, toError } from '@socket-mesh/core';
+import { abortRequest, AnyPacket, AnyRequest, AnyResponse, BaseSocketTransport, FunctionReturnType, InboundMessage, InvokeMethodOptions, InvokeServiceOptions, PrivateMethodMap, PublicMethodMap, ServiceMap, ServiceMethodName, ServiceName, SocketStatus, SocketTransport, toError } from '@socket-mesh/core';
 import { AuthError, BrokerError, InvalidActionError, SocketProtocolErrorStatuses } from '@socket-mesh/errors';
 import base64id from 'base64id';
 import { IncomingMessage } from 'http';
@@ -15,28 +15,30 @@ import { ServerSocket, ServerSocketOptions } from './server-socket.js';
 
 export class ServerTransport<
 	TIncoming extends PublicMethodMap = {},
+	TOutgoing extends PublicMethodMap = {},
 	TChannel extends ChannelMap = {},
 	TService extends ServiceMap = {},
-	TOutgoing extends PublicMethodMap = {},
+	TState extends object = {},
 	TPrivateIncoming extends PrivateMethodMap = {},
 	TPrivateOutgoing extends PrivateMethodMap = {},
-	TServerState extends object = {},
-	TState extends object = {}
-> extends SocketTransport<
-	TIncoming & TPrivateIncoming & ServerPrivateMap,
-	TOutgoing,
-	TPrivateOutgoing & ClientPrivateMap,
-	TService,
-	TState & ServerSocketState
+	TServerState extends object = {}
+> extends BaseSocketTransport<TState & ServerSocketState>
+	implements SocketTransport<
+		TIncoming & TPrivateIncoming & ServerPrivateMap,
+		TOutgoing,
+		TState & ServerSocketState,
+		TService,
+		{},
+		TPrivateOutgoing & ClientPrivateMap
 	> {
 	public override id: string;
-	public readonly plugins: ServerPlugin<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>[];
+	public readonly plugins: ServerPlugin<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>[];
 	public readonly request: IncomingMessage;
 	public readonly service?: string;
 
 	public type: 'server';
 
-	constructor(options: ServerSocketOptions<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>) {
+	constructor(options: ServerSocketOptions<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>) {
 		super(options);
 
 		this.type = 'server';
@@ -71,7 +73,7 @@ export class ServerTransport<
 	}
 
 	protected async handleInboudMessage(
-		{ packet, timestamp }: InboundMessage<TIncoming & TPrivateIncoming & ServerPrivateMap, TOutgoing, TPrivateOutgoing & ClientPrivateMap, TService>
+		{ packet, timestamp }: InboundMessage
 	): Promise<void> {
 		if ((packet === null || typeof packet !== 'object') && this.socket.server.strictHandshake && this.status === 'connecting') {
 			this.disconnect(4009);
@@ -79,6 +81,19 @@ export class ServerTransport<
 		}
 
 		return await super.handleInboudMessage({ packet, timestamp });
+	}
+
+	override invoke<TMethod extends keyof TOutgoing & string>(method: TMethod, arg?: Parameters<TOutgoing[TMethod]>[0]): [Promise<FunctionReturnType<TOutgoing[TMethod]>>, () => void];
+	override invoke<TMethod extends keyof TOutgoing & string>(options: InvokeMethodOptions<TOutgoing, TMethod>, arg?: Parameters<TOutgoing[TMethod]>[0]): [Promise<FunctionReturnType<TOutgoing[TMethod]>>, () => void];
+	override invoke<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(options: [TServiceName, TMethod, (false | number)?], arg?: Parameters<TService[TServiceName][TMethod]>[0]): [Promise<FunctionReturnType<TService[TServiceName][TMethod]>>, () => void];
+	override invoke<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(options: InvokeServiceOptions<TService, TServiceName, TMethod>, arg?: Parameters<TService[TServiceName][TMethod]>[0]): [Promise<FunctionReturnType<TService[TServiceName][TMethod]>>, () => void];
+	override invoke<TMethod extends keyof (TPrivateOutgoing & ClientPrivateMap) & string>(method: TMethod, arg: Parameters<(TPrivateOutgoing & ClientPrivateMap)[TMethod]>[0]): [Promise<FunctionReturnType<(TPrivateOutgoing & ClientPrivateMap)[TMethod]>>, () => void];
+	override invoke<TMethod extends keyof (TPrivateOutgoing & ClientPrivateMap) & string>(options: InvokeMethodOptions<(TPrivateOutgoing & ClientPrivateMap), TMethod>, arg?: Parameters<(TPrivateOutgoing & ClientPrivateMap)[TMethod]>[0]): [Promise<FunctionReturnType<(TPrivateOutgoing & ClientPrivateMap)[TMethod]>>, () => void];
+	override invoke(
+		methodOptions: [string, string, (false | number)?] | InvokeMethodOptions | InvokeServiceOptions | string,
+		arg?: unknown
+	): [Promise<unknown>, () => void] {
+		return super.invoke(methodOptions, arg);
 	}
 
 	protected override onClose(code: number, reason?: Buffer | string): void {
@@ -135,13 +150,13 @@ export class ServerTransport<
 		this.socket.server.emit('socketError', { error, socket: this.socket });
 	}
 
-	protected override onInvoke(request: AnyRequest<TOutgoing, TPrivateOutgoing & ClientPrivateMap, TService>): void {
+	protected override onInvoke(request: AnyRequest): void {
 		if (request.method !== '#publish') {
 			super.onInvoke(request);
 			return;
 		}
 
-		this.onPublish(request.data!)
+		this.onPublish(request.data as PublishOptions)
 			.then(() => {
 				super.onInvoke(request);
 			})
@@ -191,7 +206,7 @@ export class ServerTransport<
 	}
 
 	protected override async onRequest(
-		packet: AnyPacket<TIncoming & TPrivateIncoming & ServerPrivateMap, TService>,
+		packet: AnyPacket,
 		timestamp: Date,
 		pluginError?: Error
 	): Promise<boolean> {
@@ -211,17 +226,17 @@ export class ServerTransport<
 		return wasHandled;
 	}
 
-	protected override onResponse(response: AnyResponse<TOutgoing, TPrivateOutgoing & ClientPrivateMap, TService>): void {
+	protected override onResponse(response: AnyResponse): void {
 		super.onResponse(response);
 		this.socket.server.emit('socketResponse', { response, socket: this.socket });
 	}
 
-	protected override onTransmit(request: AnyRequest<TOutgoing, TPrivateOutgoing & ClientPrivateMap, TService>): void {
+	protected override onTransmit(request: AnyRequest): void {
 		if (request.method !== '#publish') {
 			super.onTransmit(request);
 			return;
 		}
-		this.onPublish(request.data!)
+		this.onPublish(request.data as PublishOptions)
 			.then(() => {
 				super.onTransmit(request);
 			})
@@ -305,12 +320,22 @@ export class ServerTransport<
 		this.socket.server.emit('socketConnect', { authError, id: this.socket.id, isAuthenticated: !!this.signedAuthToken, pingTimeoutMs, socket: this.socket });
 	}
 
-	public override get socket(): ServerSocket<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState> {
-		return super.socket as ServerSocket<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
+	public override get socket(): ServerSocket<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState> {
+		return super.socket as ServerSocket<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>;
 	}
 
-	public override set socket(value: ServerSocket<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>) {
+	public override set socket(value: ServerSocket<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>) {
 		super.socket = value;
+	}
+
+	override transmit<TMethod extends keyof TOutgoing & string>(method: TMethod, arg?: Parameters<TOutgoing[TMethod]>[0]): Promise<void>;
+	override transmit<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(options: [TServiceName, TMethod], arg?: Parameters<TService[TServiceName][TMethod]>[0]): Promise<void>;
+	override transmit<TMethod extends keyof (TPrivateOutgoing & ClientPrivateMap) & string>(method: TMethod, arg?: Parameters<(TPrivateOutgoing & ClientPrivateMap)[TMethod]>[0]): Promise<void>;
+	override transmit(
+		serviceAndMethod: [string, string] | string,
+		arg?: unknown
+	): Promise<void> {
+		return super.transmit(serviceAndMethod, arg);
 	}
 
 	public override triggerAuthenticationEvents(wasSigned: boolean, wasAuthenticated: boolean): void {

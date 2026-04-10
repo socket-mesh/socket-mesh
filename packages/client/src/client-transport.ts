@@ -1,26 +1,15 @@
 import { AuthToken } from '@socket-mesh/auth';
-import { FunctionReturnType, InvokeMethodOptions, InvokeServiceOptions, MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap, ServiceMethodName, ServiceName, SocketStatus, SocketTransport, toError } from '@socket-mesh/core';
+import { BaseSocketTransport, InvokeMethodOptions, InvokeServiceOptions, SocketStatus, SocketTransport, toError } from '@socket-mesh/core';
 import { HandshakeError, hydrateError, SocketClosedError, SocketProtocolErrorStatuses } from '@socket-mesh/errors';
 import ws from 'isomorphic-ws';
 
 import { ClientAuthEngine, isAuthEngine, LocalStorageAuthEngine } from './client-auth-engine.js';
 import { AutoReconnectOptions, ClientSocketOptions, ConnectOptions, parseAutoReconnectOptions } from './client-socket-options.js';
-import { ClientPrivateMap } from './maps/client-map.js';
-import { HandshakeStatus, ServerPrivateMap } from './maps/server-map.js';
+import { HandshakeStatus } from './maps/server-map.js';
 
 export class ClientTransport<
-	TIncoming extends MethodMap,
-	TService extends ServiceMap,
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TState extends object
-> extends SocketTransport<
-	TIncoming & ClientPrivateMap,
-	TOutgoing,
-	TPrivateOutgoing & ServerPrivateMap,
-	TService,
-	TState
-	> {
+	TState extends object = {}
+> extends BaseSocketTransport<TState> implements SocketTransport<{}, {}, TState> {
 	private _autoReconnect: AutoReconnectOptions | false;
 
 	private _connectAttempts: number;
@@ -37,7 +26,7 @@ export class ClientTransport<
 
 	public type: 'client';
 
-	constructor(options: ClientSocketOptions<TOutgoing, TService, TIncoming, TPrivateOutgoing, TState>) {
+	constructor(options: ClientSocketOptions<TState>) {
 		super(options);
 
 		this.type = 'client';
@@ -141,16 +130,10 @@ export class ClientTransport<
 		return status;
 	}
 
-	override invoke<TMethod extends keyof TOutgoing>(method: TMethod, arg?: Parameters<TOutgoing[TMethod]>[0]): [Promise<FunctionReturnType<TOutgoing[TMethod]>>, () => void];
-	override invoke<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(options: [TServiceName, TMethod, (false | number)?], arg?: Parameters<TService[TServiceName][TMethod]>[0]): [Promise<FunctionReturnType<TService[TServiceName][TMethod]>>, () => void];
-	override invoke<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(options: InvokeServiceOptions<TService, TServiceName, TMethod>, arg?: Parameters<TService[TServiceName][TMethod]>[0]): [Promise<FunctionReturnType<TService[TServiceName][TMethod]>>, () => void];
-	override invoke<TMethod extends keyof TOutgoing>(options: InvokeMethodOptions<TOutgoing, TMethod>, arg?: Parameters<TOutgoing[TMethod]>[0]): [Promise<FunctionReturnType<TOutgoing[TMethod]>>, () => void];
-	override invoke<TMethod extends keyof (TPrivateOutgoing & ServerPrivateMap)>(method: TMethod, arg: Parameters<(TPrivateOutgoing & ServerPrivateMap)[TMethod]>[0]): [Promise<FunctionReturnType<(TPrivateOutgoing & ServerPrivateMap)[TMethod]>>, () => void];
-	override invoke<TMethod extends keyof (TPrivateOutgoing & ServerPrivateMap)>(options: InvokeMethodOptions<(TPrivateOutgoing & ServerPrivateMap), TMethod>, arg?: Parameters<(TPrivateOutgoing & ServerPrivateMap)[TMethod]>[0]): [Promise<FunctionReturnType<(TPrivateOutgoing & ServerPrivateMap)[TMethod]>>, () => void];
-	override invoke<TServiceName extends ServiceName<TService>, TServiceMethod extends ServiceMethodName<TService, TServiceName>, TMethod extends keyof TOutgoing, TPrivateMethod extends keyof (TPrivateOutgoing & ServerPrivateMap)>(
-		methodOptions: [TServiceName, TServiceMethod, (false | number)?] | InvokeMethodOptions<(TPrivateOutgoing & ServerPrivateMap), TPrivateMethod> | InvokeMethodOptions<TOutgoing, TMethod> | InvokeServiceOptions<TService, TServiceName, TServiceMethod> | TMethod | TPrivateMethod,
-		arg?: (Parameters<(TPrivateOutgoing & ServerPrivateMap)[TPrivateMethod]> | Parameters<TOutgoing[TMethod]> | Parameters<TService[TServiceName][TServiceMethod]>)[0]
-	): [Promise<FunctionReturnType<(TPrivateOutgoing & ServerPrivateMap)[TPrivateMethod] | TOutgoing[TMethod] | TService[TServiceName][TServiceMethod]>>, () => void] {
+	override invoke(
+		methodOptions: [string, string, (false | number)?] | InvokeMethodOptions | InvokeServiceOptions | string,
+		arg?: unknown
+	): [Promise<unknown>, () => void] {
 		let wasAborted = false;
 		let abort: () => void =
 			() => { wasAborted = true; };
@@ -163,7 +146,7 @@ export class ClientTransport<
 				}
 			})
 			.then(() => {
-				const result = super.invoke(methodOptions as TMethod, arg);
+				const result = super.invoke(methodOptions, arg);
 				abort = result[1];
 
 				if (wasAborted) {
@@ -308,17 +291,17 @@ export class ClientTransport<
 		return super.status;
 	}
 
-	override transmit<TMethod extends keyof TOutgoing>(method: TMethod, arg?: Parameters<TOutgoing[TMethod]>[0]): Promise<void>;
-	override transmit<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(options: [TServiceName, TMethod], arg?: Parameters<TService[TServiceName][TMethod]>[0]): Promise<void>;
-	override transmit<TMethod extends keyof (TPrivateOutgoing & ServerPrivateMap)>(method: TMethod, arg?: Parameters<(TPrivateOutgoing & ServerPrivateMap)[TMethod]>[0]): Promise<void>;
-	override async transmit<TServiceName extends ServiceName<TService>, TServiceMethod extends ServiceMethodName<TService, TServiceName>, TMethod extends keyof TOutgoing>(serviceAndMethod: [TServiceName, TServiceMethod] | TMethod, arg?: (Parameters<TOutgoing[TMethod]> | Parameters<TService[TServiceName][TServiceMethod]>)[0]): Promise<void> {
+	override async transmit(
+		serviceAndMethod: [string, string] | string,
+		arg?: unknown
+	): Promise<void> {
 		if (this.status === 'closed') {
 			this.connect();
 
 			await this.socket.listen('connect').once();
 		}
 
-		await super.transmit(serviceAndMethod as TMethod, arg);
+		await super.transmit(serviceAndMethod, arg);
 	}
 
 	private tryReconnect(initialDelay?: number): void {

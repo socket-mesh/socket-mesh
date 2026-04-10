@@ -1,22 +1,25 @@
 import { AuthEngine, AuthOptions } from '@socket-mesh/auth-engine';
 import { ChannelMap } from '@socket-mesh/channels';
-import { ClientPrivateMap, ServerPrivateMap } from '@socket-mesh/client';
+import { ServerPrivateMap } from '@socket-mesh/client';
 import { CallIdGenerator, HandlerMap, PrivateMethodMap, PublicMethodMap, ServiceMap, StreamCleanupMode } from '@socket-mesh/core';
 import { CodecEngine } from '@socket-mesh/formatter';
 import { ServerOptions as WebSocketServerOptions } from 'ws';
 
 import { Broker } from './broker/broker.js';
 import { ServerPlugin } from './plugin/server-plugin.js';
+import { ServerSocketState } from './server-socket-state.js';
+import { ServerSocket } from './server-socket.js';
+import { ServerTransport } from './server-transport.js';
 
 export interface ServerOptions<
 	TIncoming extends PublicMethodMap = {},
+	TOutgoing extends PublicMethodMap = {},
 	TChannel extends ChannelMap = {},
 	TService extends ServiceMap = {},
-	TOutgoing extends PublicMethodMap = {},
+	TState extends object = {},
 	TPrivateIncoming extends PrivateMethodMap = {},
 	TPrivateOutgoing extends PrivateMethodMap = {},
-	TServerState extends object = {},
-	TState extends object = {}
+	TServerState extends object = {}
 > extends WebSocketServerOptions {
 	// In milliseconds, the timeout for receiving a response
 	// when using invoke() or invokePublish().
@@ -33,7 +36,12 @@ export interface ServerOptions<
 
 	codecEngine?: CodecEngine,
 
-	handlers?: HandlerMap<TIncoming & TPrivateIncoming & ServerPrivateMap, TOutgoing, TPrivateOutgoing & ClientPrivateMap, TService, TState>,
+	handlers?: HandlerMap<
+		TIncoming & TPrivateIncoming & ServerPrivateMap,
+		TState & ServerSocketState,
+		ServerSocket<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>,
+		ServerTransport<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
+	>,
 
 	// In milliseconds, the timeout for receiving a response
 	// when using invoke() or invokePublish(). ackTimeout: number
@@ -50,7 +58,7 @@ export interface ServerOptions<
 
 	pingTimeoutMs?: number,
 
-	plugins?: ServerPlugin<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>[],
+	plugins?: ServerPlugin<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>[],
 
 	// The maximum number of unique channels which a single socket can subscribe to.
 	socketChannelLimit?: number,

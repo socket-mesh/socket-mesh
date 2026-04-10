@@ -2,8 +2,8 @@ import { AuthToken, SignedAuthToken } from '@socket-mesh/auth';
 import ws from 'isomorphic-ws';
 
 import { MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap } from './maps/method-map.js';
-import { MethodPacket, ServicePacket } from './packet.js';
-import { AnyResponse } from './response.js';
+import { AnyPacket, IncomingPacket } from './packet.js';
+import { AnyResponse, OutgoingResponse } from './response.js';
 
 export interface AuthenticatedChangeEvent {
 	authToken: AuthToken | null,
@@ -71,26 +71,51 @@ export interface RemoveAuthTokenEvent {
 	oldAuthToken: SignedAuthToken
 }
 
-export interface RequestEvent<
-	TIncoming extends MethodMap,
-	TService extends ServiceMap
-> {
-	request: MethodPacket<TIncoming> | ServicePacket<TService>
+export interface RequestEvent {
+	request: AnyPacket
 }
 
-export interface ResponseEvent<
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap
-> {
-	response: AnyResponse<TOutgoing, TPrivateOutgoing, TService>
+export interface ResponseEvent {
+	response: AnyResponse
 }
 
-export type SocketEvent<
+export type SocketEvent =
+	AuthenticateEvent
+	| AuthStateChangeEvent
+	| BadAuthTokenEvent
+	| CloseEvent
+	| ConnectEvent
+	| ConnectingEvent
+	| DeauthenticateEvent
+	| DisconnectEvent
+	| ErrorEvent
+	| MessageEvent
+	| PingEvent
+	| PongEvent
+	| RemoveAuthTokenEvent
+	| RequestEvent
+	| ResponseEvent;
+
+export interface TypedRequestEvent<
+	TIncoming extends MethodMap,
+	TService extends ServiceMap = {}
+> {
+	request: IncomingPacket<TIncoming, TService>
+}
+
+export interface TypedResponseEvent<
+	TOutgoing extends PublicMethodMap,
+	TPrivateOutgoing extends PrivateMethodMap = {},
+	TService extends ServiceMap = {}
+> {
+	response: OutgoingResponse<TOutgoing, TPrivateOutgoing, TService>
+}
+
+export type TypedSocketEvent<
 	TIncoming extends MethodMap,
 	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap
+	TPrivateOutgoing extends PrivateMethodMap = {},
+	TService extends ServiceMap = {}
 > =
 	AuthenticateEvent
 	| AuthStateChangeEvent
@@ -105,5 +130,5 @@ export type SocketEvent<
 	| PingEvent
 	| PongEvent
 	| RemoveAuthTokenEvent
-	| RequestEvent<TIncoming, TService>
-	| ResponseEvent<TOutgoing, TPrivateOutgoing, TService>;
+	| TypedRequestEvent<TIncoming, TService>
+	| TypedResponseEvent<TOutgoing, TPrivateOutgoing, TService>;

@@ -43,8 +43,8 @@ const allowedUsers: { [name: string]: true } = {
 	kate: true
 };
 
-let client: ClientSocket<ServerIncomingMap, MyChannels>;
-let server: Server<ServerIncomingMap, MyChannels>;
+let client: ClientSocket<{}, ServerIncomingMap, MyChannels>;
+let server: Server<ServerIncomingMap, {}, MyChannels>;
 
 let wasPerformTaskTriggered: boolean;
 
@@ -72,7 +72,7 @@ async function setAuthKeyHandler({ options: secret, socket }: ServerRequestHandl
 	socket.server!.auth.authKey = secret;
 }
 
-const clientOptions: ClientSocketOptions<ServerIncomingMap> = {
+const clientOptions: ClientSocketOptions = {
 	ackTimeoutMs: 200,
 	address: `ws://127.0.0.1:${PORT_NUMBER}`,
 	authEngine: { authTokenName: AUTH_TOKEN_NAME }
@@ -80,7 +80,7 @@ const clientOptions: ClientSocketOptions<ServerIncomingMap> = {
 
 describe('Client Tests', function () {
 	beforeEach(async function () {
-		server = listen<ServerIncomingMap, MyChannels>(
+		server = listen<ServerIncomingMap, {}, MyChannels>(
 			PORT_NUMBER,
 			{
 				ackTimeoutMs: 200,
@@ -775,7 +775,7 @@ describe('Client Tests', function () {
 	});
 
 	describe('Pub/sub', function () {
-		let publisherClient: ClientSocket<ServerIncomingMap, MyChannels>;
+		let publisherClient: ClientSocket<{}, ServerIncomingMap, MyChannels>;
 		const lastServerMessage: null | string = null;
 
 		beforeEach(async function () {

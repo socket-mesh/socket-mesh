@@ -1,7 +1,8 @@
 import { ChannelDetails, ChannelMap, ChannelOptions, Channels, ChannelsOptions } from '@socket-mesh/channels';
-import { MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap, toError } from '@socket-mesh/core';
+import { SocketTransport, toError } from '@socket-mesh/core';
 
 import { ClientTransport } from './client-transport.js';
+import { ServerPrivateMap } from './maps/server-map.js';
 
 export interface ClientChannelsOptions extends ChannelsOptions {
 	autoSubscribeOnConnect?: boolean
@@ -9,18 +10,14 @@ export interface ClientChannelsOptions extends ChannelsOptions {
 
 export class ClientChannels<
 	TChannel extends ChannelMap,
-	TIncoming extends MethodMap,
-	TService extends ServiceMap,
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TState extends object
+	TState extends object = {}
 > extends Channels<TChannel> {
 	protected _preparingPendingSubscriptions: boolean;
 
-	protected readonly _transport: ClientTransport<TIncoming, TService, TOutgoing, TPrivateOutgoing, TState>;
+	protected readonly _transport: SocketTransport<{}, {}, TState, {}, {}, ServerPrivateMap>;
 	public autoSubscribeOnConnect: boolean;
 
-	constructor(transport: ClientTransport<TIncoming, TService, TOutgoing, TPrivateOutgoing, TState>, options?: ClientChannelsOptions) {
+	constructor(transport: ClientTransport<TState>, options?: ClientChannelsOptions) {
 		if (!options) {
 			options = {};
 		}
@@ -28,7 +25,7 @@ export class ClientChannels<
 		super(options);
 
 		this.autoSubscribeOnConnect = options.autoSubscribeOnConnect ?? true;
-		this._transport = transport;
+		this._transport = transport as unknown as SocketTransport<{}, {}, TState, {}, {}, ServerPrivateMap>;
 		this._preparingPendingSubscriptions = false;
 
 		this._transport.plugins.push({

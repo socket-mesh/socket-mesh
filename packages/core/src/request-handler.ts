@@ -1,29 +1,24 @@
 import { TimeoutError } from '@socket-mesh/errors';
 
-import { MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap } from './maps/method-map.js';
-import { SocketTransport } from './socket-transport.js';
-import { Socket } from './socket.js';
+import { BaseSocketTransport } from './socket-transport.js';
+import { BaseSocket } from './socket.js';
+
+export interface LooseHandlerMap {
+	[method: string]: ((args: RequestHandlerArgs<any, any, any, any>) => Promise<any>) | undefined
+}
 
 export type RequestHandler<
 	TOptions, U,
-	TIncoming extends MethodMap,
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap,
 	TState extends object,
-	TSocket extends Socket<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState> = Socket<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>,
-	TTransport extends SocketTransport<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState> = SocketTransport<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>
-> = (args: RequestHandlerArgs<TOptions, TIncoming, TOutgoing, TPrivateOutgoing, TService, TState, TSocket, TTransport>) => Promise<U>;
+	TSocket extends BaseSocket<TState> = BaseSocket<TState>,
+	TTransport extends BaseSocketTransport<TState> = BaseSocketTransport<TState>
+> = (args: RequestHandlerArgs<TOptions, TState, TSocket, TTransport>) => Promise<U>;
 
 export interface RequestHandlerArgsOptions<
 	TOptions,
-	TIncoming extends MethodMap,
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap,
 	TState extends object,
-	TSocket extends Socket<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState> = Socket<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>,
-	TTransport extends SocketTransport<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState> = SocketTransport<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>
+	TSocket extends BaseSocket<TState> = BaseSocket<TState>,
+	TTransport extends BaseSocketTransport<TState> = BaseSocketTransport<TState>
 > {
 	isRpc: boolean,
 	method: string,
@@ -35,13 +30,9 @@ export interface RequestHandlerArgsOptions<
 
 export class RequestHandlerArgs<
 	TOptions,
-	TIncoming extends MethodMap = {},
-	TOutgoing extends PublicMethodMap = {},
-	TPrivateOutgoing extends PrivateMethodMap = {},
-	TService extends ServiceMap = {},
 	TState extends object = {},
-	TSocket extends Socket<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState> = Socket<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>,
-	TTransport extends SocketTransport<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState> = SocketTransport<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>
+	TSocket extends BaseSocket<TState> = BaseSocket<TState>,
+	TTransport extends BaseSocketTransport<TState> = BaseSocketTransport<TState>
 > {
 	public isRpc: boolean;
 	public method: string;
@@ -51,7 +42,7 @@ export class RequestHandlerArgs<
 	public timeoutMs?: boolean | number;
 	public transport: TTransport;
 
-	constructor(options: RequestHandlerArgsOptions<TOptions, TIncoming, TOutgoing, TPrivateOutgoing, TService, TState, TSocket, TTransport>) {
+	constructor(options: RequestHandlerArgsOptions<TOptions, TState, TSocket, TTransport>) {
 		this.isRpc = options.isRpc;
 		this.method = options.method;
 		this.options = options.options;

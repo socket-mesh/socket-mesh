@@ -3,27 +3,24 @@ import { AbortError, AuthError, BadConnectionError, dehydrateError, hydrateError
 import defaultCodec, { CodecEngine } from '@socket-mesh/formatter';
 import ws from 'isomorphic-ws';
 
-import { HandlerMap } from './maps/handler-map.js';
-import { FunctionReturnType, MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap, ServiceMethodName, ServiceName } from './maps/method-map.js';
-import { AnyPacket, isRequestPacket, MethodPacket } from './packet.js';
-import { Plugin } from './plugins/plugin.js';
-import { RequestHandlerArgs } from './request-handler.js';
+import {
+	FunctionReturnType, MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap, ServiceMethodName,
+	ServiceName
+} from './maps/method-map.js';
+import { AnyPacket, isRequestPacket } from './packet.js';
+import { AnyPlugin } from './plugins/plugin.js';
+import { LooseHandlerMap, RequestHandlerArgs } from './request-handler.js';
 import { abortRequest, AnyRequest, InvokeMethodRequest, InvokeServiceRequest, isRequestDone, TransmitMethodRequest, TransmitServiceRequest } from './request.js';
-import { AnyResponse, isResponsePacket, MethodDataResponse } from './response.js';
-import { Socket, SocketOptions, SocketStatus, StreamCleanupMode } from './socket.js';
+import { AnyResponse, DataResponse, isResponsePacket } from './response.js';
+import { BaseSocket, BaseSocketOptions, Socket, SocketStatus, StreamCleanupMode } from './socket.js';
 import { toArray, toError, wait } from './utils.js';
 
 export type CallIdGenerator = () => number;
 
-export interface InboundMessage<
-	TIncoming extends MethodMap,
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap
-> {
+export interface InboundMessage {
 	packet:
-		(AnyPacket<TIncoming, TService> | AnyResponse<TOutgoing, TPrivateOutgoing, TService>)[]
-		| (AnyPacket<TIncoming, TService> | AnyResponse<TOutgoing, TPrivateOutgoing, TService>) | null,
+		(AnyPacket | AnyResponse)[]
+		| (AnyPacket | AnyResponse) | null,
 	timestamp: Date
 }
 
@@ -33,32 +30,73 @@ interface InvokeCallback<T> {
 	timeoutId?: NodeJS.Timeout
 }
 
-export interface InvokeMethodOptions<TMethodMap extends MethodMap, TMethod extends keyof TMethodMap> {
+export interface InvokeMethodOptions<
+	TMethodMap extends MethodMap = MethodMap,
+	TMethod extends keyof TMethodMap & string = keyof TMethodMap & string
+> {
 	ackTimeoutMs?: false | number,
 	method: TMethod
 }
 
-export interface InvokeServiceOptions<TServiceMap extends ServiceMap, TService extends keyof TServiceMap, TMethod extends keyof TServiceMap[TService]> {
+export interface InvokeServiceOptions<
+	TServiceMap extends ServiceMap = ServiceMap,
+	TService extends keyof TServiceMap & string = keyof TServiceMap & string,
+	TMethod extends keyof TServiceMap[TService] & string = keyof TServiceMap[TService] & string
+> {
 	ackTimeoutMs?: false | number,
 	method: TMethod,
 	service: TService
 }
 
+export type SocketTransport<
+	TIncoming extends PublicMethodMap = {},
+	TOutgoing extends PublicMethodMap = {},
+	TState extends object = {},
+	TService extends ServiceMap = {},
+	TPrivateIncoming extends PrivateMethodMap = {},
+	TPrivateOutgoing extends PrivateMethodMap = {}
+> = Omit<BaseSocketTransport<TState>, 'invoke' | 'socket' | 'transmit'> & {
+	invoke<TMethod extends keyof TOutgoing & string>(
+		method: TMethod, arg?: Parameters<TOutgoing[TMethod]>[0]
+	): [Promise<FunctionReturnType<TOutgoing[TMethod]>>, () => void],
+	invoke<TMethod extends keyof TOutgoing & string>(
+		options: InvokeMethodOptions<TOutgoing, TMethod>, arg?: Parameters<TOutgoing[TMethod]>[0]
+	): [Promise<FunctionReturnType<TOutgoing[TMethod]>>, () => void],
+	invoke<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(
+		options: [TServiceName, TMethod, (false | number)?], arg?: Parameters<TService[TServiceName][TMethod]>[0]
+	): [Promise<FunctionReturnType<TService[TServiceName][TMethod]>>, () => void],
+	invoke<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(
+		options: InvokeServiceOptions<TService, TServiceName, TMethod>, arg?: Parameters<TService[TServiceName][TMethod]>[0]
+	): [Promise<FunctionReturnType<TService[TServiceName][TMethod]>>, () => void],
+	invoke<TMethod extends keyof TPrivateOutgoing & string>(
+		method: TMethod, arg?: Parameters<TPrivateOutgoing[TMethod]>[0]
+	): [Promise<FunctionReturnType<TPrivateOutgoing[TMethod]>>, () => void],
+	invoke<TMethod extends keyof TPrivateOutgoing & string>(
+		options: InvokeMethodOptions<TPrivateOutgoing, TMethod>, arg?: Parameters<TPrivateOutgoing[TMethod]>[0]
+	): [Promise<FunctionReturnType<TPrivateOutgoing[TMethod]>>, () => void],
+
+	readonly socket: Socket<TIncoming, TOutgoing, TState, TService, TPrivateIncoming, TPrivateOutgoing>,
+
+	transmit<TMethod extends keyof TOutgoing & string>(
+		method: TMethod, arg?: Parameters<TOutgoing[TMethod]>[0]
+	): Promise<void>,
+	transmit<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(
+		options: [TServiceName, TMethod], arg?: Parameters<TService[TServiceName][TMethod]>[0]
+	): Promise<void>,
+	transmit<TMethod extends keyof TPrivateOutgoing & string>(
+		method: TMethod, arg?: Parameters<TPrivateOutgoing[TMethod]>[0]
+	): Promise<void>
+};
+
 interface WebSocketError extends Error {
 	code?: string
 }
 
-export class SocketTransport<
-	TIncoming extends MethodMap,
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap,
-	TState extends object
-> {
+export class BaseSocketTransport<TState extends object = {}> {
 	private _authToken: AuthToken | null;
 	private readonly _callbackMap: { [cid: number]: InvokeCallback<unknown> };
 	private readonly _callIdGenerator: CallIdGenerator;
-	private readonly _handlers: HandlerMap<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>;
+	private readonly _handlers: LooseHandlerMap;
 	private _inboundProcessedMessageCount: number;
 	private _inboundReceivedMessageCount: number;
 	private _isReady: boolean;
@@ -66,16 +104,16 @@ export class SocketTransport<
 	private _outboundSentMessageCount: number;
 	private _pingTimeoutRef: NodeJS.Timeout | null;
 	private _signedAuthToken: null | SignedAuthToken;
-	private _socket!: Socket<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>;
+	private _socket!: BaseSocket<TState>;
 	private _webSocket: null | ws.WebSocket;
 	public ackTimeoutMs: number;
 	public readonly codecEngine: CodecEngine;
 	public id: null | string;
-	public readonly plugins: Plugin<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>[];
+	public readonly plugins: AnyPlugin[];
 
 	public streamCleanupMode: StreamCleanupMode;
 
-	protected constructor(options?: SocketOptions<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>) {
+	protected constructor(options?: BaseSocketOptions<TState>) {
 		let cid = 1;
 
 		this._isReady = false;
@@ -181,12 +219,12 @@ export class SocketTransport<
 		return this._outboundPreparedMessageCount - this._outboundSentMessageCount;
 	}
 
-	protected async handleInboudMessage({ packet, timestamp }: InboundMessage<TIncoming, TOutgoing, TPrivateOutgoing, TService>): Promise<void> {
+	protected async handleInboudMessage({ packet, timestamp }: InboundMessage): Promise<void> {
 		if (packet === null) {
 			return;
 		}
 
-		packet = toArray<AnyPacket<TIncoming, TService> | AnyResponse<TOutgoing, TPrivateOutgoing, TService>>(packet);
+		packet = toArray<AnyPacket | AnyResponse>(packet);
 
 		for (let curPacket of packet) {
 			let pluginError: Error | undefined;
@@ -212,30 +250,13 @@ export class SocketTransport<
 		}
 	}
 
-	public invoke<TMethod extends keyof TOutgoing>(
-		method: TMethod, arg?: Parameters<TOutgoing[TMethod]>[0]): [Promise<FunctionReturnType<TOutgoing[TMethod]>>, () => void];
-	public invoke<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(
-		options: [TServiceName, TMethod, (false | number)?], arg?: Parameters<TService[TServiceName][TMethod]>[0]): [Promise<FunctionReturnType<TService[TServiceName][TMethod]>>, () => void];
-	public invoke<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(
-		options: InvokeServiceOptions<TService, TServiceName, TMethod>, arg?: Parameters<TService[TServiceName][TMethod]>[0]): [Promise<FunctionReturnType<TService[TServiceName][TMethod]>>, () => void];
-	public invoke<TMethod extends keyof TOutgoing>(
-		options: InvokeMethodOptions<TOutgoing, TMethod>, arg?: Parameters<TOutgoing[TMethod]>[0]): [Promise<FunctionReturnType<TOutgoing[TMethod]>>, () => void];
-	public invoke<TMethod extends keyof TPrivateOutgoing>(
-		method: TMethod, arg: Parameters<TPrivateOutgoing[TMethod]>[0]): [Promise<FunctionReturnType<TPrivateOutgoing[TMethod]>>, () => void];
-	public invoke<TMethod extends keyof TPrivateOutgoing>(
-		options: InvokeMethodOptions<TPrivateOutgoing, TMethod>, arg?: Parameters<TPrivateOutgoing[TMethod]>[0]): [Promise<FunctionReturnType<TPrivateOutgoing[TMethod]>>, () => void];
-	public invoke<
-		TServiceName extends ServiceName<TService>,
-		TServiceMethod extends ServiceMethodName<TService, TServiceName>,
-		TMethod extends keyof TOutgoing,
-		TPrivateMethod extends keyof TPrivateOutgoing
-	>(
-		methodOptions: [TServiceName, TServiceMethod, (false | number)?] | InvokeMethodOptions<TOutgoing, TMethod> | InvokeMethodOptions<TPrivateOutgoing, TPrivateMethod> | InvokeServiceOptions<TService, TServiceName, TServiceMethod> | TMethod | TPrivateMethod,
-		arg?: (Parameters<TOutgoing[TMethod] | TPrivateOutgoing[TPrivateMethod] | TService[TServiceName][TServiceMethod]>)[0]
-	): [Promise<FunctionReturnType<TOutgoing[TMethod] | TPrivateOutgoing[TPrivateMethod] | TService[TServiceName][TServiceMethod]>>, () => void] {
-		let methodRequest: Omit<InvokeMethodRequest<TOutgoing, TMethod>, 'promise'> | Omit<InvokeMethodRequest<TPrivateOutgoing, TPrivateMethod>, 'promise'> | undefined;
-		let serviceRequest: Omit<InvokeServiceRequest<TService, TServiceName, TServiceMethod>, 'promise'> | undefined;
-		let service: TServiceName | undefined;
+	public invoke(
+		methodOptions: [string, string, (false | number)?] | InvokeMethodOptions | InvokeServiceOptions | string,
+		arg?: unknown
+	): [Promise<unknown>, () => void] {
+		let methodRequest: Omit<InvokeMethodRequest, 'promise'> | undefined;
+		let serviceRequest: Omit<InvokeServiceRequest, 'promise'> | undefined;
+		let service: string | undefined;
 		let ackTimeoutMs: false | number | undefined;
 
 		if (typeof methodOptions === 'object' && !Array.isArray(methodOptions)) {
@@ -243,7 +264,7 @@ export class SocketTransport<
 		}
 
 		if (typeof methodOptions === 'object' && (Array.isArray(methodOptions) || 'service' in methodOptions)) {
-			let serviceMethod: TServiceMethod | undefined;
+			let serviceMethod: string | undefined;
 
 			if (Array.isArray(methodOptions)) {
 				service = methodOptions[0];
@@ -260,7 +281,7 @@ export class SocketTransport<
 				cid: this._callIdGenerator(),
 				data: arg,
 				method: serviceMethod,
-				service
+				service: service
 			};
 		} else {
 			methodRequest = {
@@ -268,7 +289,7 @@ export class SocketTransport<
 				callback: null,
 				cid: this._callIdGenerator(),
 				data: arg,
-				method: ((typeof methodOptions === 'object') ? methodOptions.method : methodOptions) as TMethod
+				method: (typeof methodOptions === 'object') ? methodOptions.method : methodOptions
 			};
 		}
 
@@ -277,7 +298,7 @@ export class SocketTransport<
 		let abort: () => void;
 		const baseRequest = (serviceRequest || methodRequest!);
 
-		const promise = new Promise<FunctionReturnType<TOutgoing[TMethod] | TPrivateOutgoing[TPrivateMethod] | TService[TServiceName][TServiceMethod]>>((resolve, reject) => {
+		const promise = new Promise<unknown>((resolve, reject) => {
 			if (baseRequest.ackTimeoutMs) {
 				baseRequest.timeoutId = setTimeout(
 					() => {
@@ -305,7 +326,7 @@ export class SocketTransport<
 				}
 			};
 
-			baseRequest.callback = (err: Error | null, result?: TOutgoing[TMethod] | TPrivateOutgoing[TPrivateMethod] | TService[TServiceName][TServiceMethod]) => {
+			baseRequest.callback = (err: Error | null, result?: unknown) => {
 				delete callbackMap[baseRequest.cid];
 				baseRequest.callback = null;
 
@@ -319,7 +340,7 @@ export class SocketTransport<
 					return;
 				}
 
-				resolve(result as FunctionReturnType<TOutgoing[TMethod] | TPrivateOutgoing[TPrivateMethod] | TService[TServiceName][TServiceMethod]>);
+				resolve(result);
 			};
 
 			baseRequest.sentCallback = () => {
@@ -332,7 +353,7 @@ export class SocketTransport<
 
 		const request = Object.assign(baseRequest, { promise });
 
-		this.onInvoke(request as AnyRequest<TOutgoing, TPrivateOutgoing, TService>);
+		this.onInvoke(request as AnyRequest);
 
 		return [promise, abort!];
 	}
@@ -391,7 +412,7 @@ export class SocketTransport<
 		this._socket.emit('error', { error });
 	}
 
-	protected onInvoke(request: AnyRequest<TOutgoing, TPrivateOutgoing, TService>): void {
+	protected onInvoke(request: AnyRequest): void {
 		this.sendRequest([request]);
 	}
 
@@ -427,8 +448,8 @@ export class SocketTransport<
 
 		p.then((data) => {
 			const packet:
-				(AnyPacket<TIncoming, TService> | AnyResponse<TOutgoing, TPrivateOutgoing, TService>)[]
-				| (AnyPacket<TIncoming, TService> | AnyResponse<TOutgoing, TPrivateOutgoing, TService>)
+				(AnyPacket | AnyResponse)[]
+				| (AnyPacket | AnyResponse)
 				| null = this.decode(data);
 
 			this._socket.emit('message', { data, isBinary });
@@ -456,13 +477,13 @@ export class SocketTransport<
 
 	protected onPingPong(): void {}
 
-	protected async onRequest(packet: AnyPacket<TIncoming, TService>, timestamp: Date, pluginError?: Error): Promise<boolean> {
+	protected async onRequest(packet: AnyPacket, timestamp: Date, pluginError?: Error): Promise<boolean> {
 		this._socket.emit('request', { request: packet });
 
 		const timeoutAt = typeof packet.ackTimeoutMs === 'number' ? new Date(timestamp.valueOf() + packet.ackTimeoutMs) : undefined;
 		let wasHandled = false;
 
-		let response: AnyResponse<TOutgoing, TPrivateOutgoing, TService> | undefined;
+		let response: AnyResponse | undefined;
 		let error: Error | undefined;
 
 		if (pluginError) {
@@ -473,7 +494,7 @@ export class SocketTransport<
 				response = { error: pluginError, rid: packet.cid, timeoutAt };
 			}
 		} else {
-			const handler = this._handlers[(packet as MethodPacket<TIncoming>).method];
+			const handler = this._handlers[packet.method];
 
 			if (handler) {
 				wasHandled = true;
@@ -482,7 +503,7 @@ export class SocketTransport<
 					const data = await handler(
 						new RequestHandlerArgs({
 							isRpc: !!packet.cid,
-							method: packet.method.toString(),
+							method: packet.method,
 							options: packet.data,
 							socket: this._socket,
 							timeoutMs: packet.ackTimeoutMs,
@@ -491,7 +512,7 @@ export class SocketTransport<
 					);
 
 					if (packet.cid) {
-						response = { data, rid: packet.cid, timeoutAt } as MethodDataResponse<TIncoming>;
+						response = { data, rid: packet.cid, timeoutAt } as DataResponse;
 					}
 				} catch (err) {
 					error = toError(err);
@@ -518,7 +539,7 @@ export class SocketTransport<
 		return wasHandled;
 	}
 
-	protected onResponse(response: AnyResponse<TOutgoing, TPrivateOutgoing, TService>, pluginError?: Error) {
+	protected onResponse(response: AnyResponse, pluginError?: Error) {
 		const map = this._callbackMap[response.rid];
 
 		if (map) {
@@ -555,11 +576,11 @@ export class SocketTransport<
 		this.onMessage(event.data, false);
 	}
 
-	protected onTransmit(request: AnyRequest<TOutgoing, TPrivateOutgoing, TService>): void {
+	protected onTransmit(request: AnyRequest): void {
 		this.sendRequest([request]);
 	}
 
-	protected onUnhandledRequest(_: AnyPacket<TIncoming, TService>): boolean {
+	protected onUnhandledRequest(_: AnyPacket): boolean {
 		return false;
 	}
 
@@ -603,9 +624,9 @@ export class SocketTransport<
 		});
 	}
 
-	protected sendRequest(requests: (AnyRequest<TOutgoing, TPrivateOutgoing, TService>)[]): void;
-	protected sendRequest(index: number, requests: (AnyRequest<TOutgoing, TPrivateOutgoing, TService>)[]): void;
-	protected sendRequest(index: (AnyRequest<TOutgoing, TPrivateOutgoing, TService>)[] | number, requests?: (AnyRequest<TOutgoing, TPrivateOutgoing, TService>)[]): void {
+	protected sendRequest(requests: AnyRequest[]): void;
+	protected sendRequest(index: number, requests: AnyRequest[]): void;
+	protected sendRequest(index: AnyRequest[] | number, requests?: AnyRequest[]): void {
 		if (typeof index === 'object') {
 			requests = index;
 			index = 0;
@@ -712,9 +733,9 @@ export class SocketTransport<
 		});
 	}
 
-	protected sendResponse(responses: (AnyResponse<TOutgoing, TPrivateOutgoing, TService>)[]): void;
-	protected sendResponse(index: number, responses: (AnyResponse<TOutgoing, TPrivateOutgoing, TService>)[]): void;
-	protected sendResponse(index: (AnyResponse<TOutgoing, TPrivateOutgoing, TService>)[] | number, responses?: (AnyResponse<TOutgoing, TPrivateOutgoing, TService>)[]): void {
+	protected sendResponse(responses: AnyResponse[]): void;
+	protected sendResponse(index: number, responses: AnyResponse[]): void;
+	protected sendResponse(index: AnyResponse[] | number, responses?: AnyResponse[]): void {
 		if (typeof index === 'object') {
 			responses = index;
 			index = 0;
@@ -820,11 +841,11 @@ export class SocketTransport<
 		return this._signedAuthToken;
 	}
 
-	public get socket(): Socket<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState> {
+	public get socket(): BaseSocket<TState> {
 		return this._socket;
 	}
 
-	public set socket(value: Socket<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>) {
+	public set socket(value: BaseSocket<TState>) {
 		this._socket = value;
 	}
 
@@ -849,22 +870,12 @@ export class SocketTransport<
 		}
 	}
 
-	public transmit<TMethod extends keyof TOutgoing>(
-		method: TMethod, arg?: Parameters<TOutgoing[TMethod]>[0]): Promise<void>;
-	public transmit<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(
-		options: [TServiceName, TMethod], arg?: Parameters<TService[TServiceName][TMethod]>[0]): Promise<void>;
-	public transmit<TMethod extends keyof TPrivateOutgoing>(
-		method: TMethod, arg?: Parameters<TPrivateOutgoing[TMethod]>[0]): Promise<void>;
-	public transmit<
-		TServiceName extends ServiceName<TService>,
-		TServiceMethod extends ServiceMethodName<TService, TServiceName>,
-		TMethod extends keyof TOutgoing
-	>(
-		serviceAndMethod: [TServiceName, TServiceMethod] | TMethod,
-		arg?: (Parameters<TOutgoing[TMethod] | TService[TServiceName][TServiceMethod]>)[0]
+	public transmit(
+		serviceAndMethod: [string, string] | string,
+		arg?: unknown
 	): Promise<void> {
-		let serviceRequest: Omit<TransmitServiceRequest<TService, TServiceName, TServiceMethod>, 'promise'> | undefined;
-		let methodRequest: Omit<TransmitMethodRequest<TOutgoing, TMethod>, 'promise'> | undefined;
+		let serviceRequest: Omit<TransmitServiceRequest, 'promise'> | undefined;
+		let methodRequest: Omit<TransmitMethodRequest, 'promise'> | undefined;
 
 		if (Array.isArray(serviceAndMethod)) {
 			serviceRequest = {
@@ -899,7 +910,7 @@ export class SocketTransport<
 
 		const request = Object.assign(baseRequest, { promise });
 
-		this.onTransmit(request);
+		this.onTransmit(request as AnyRequest);
 
 		return request.promise;
 	}

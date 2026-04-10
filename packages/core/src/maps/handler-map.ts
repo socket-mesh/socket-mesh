@@ -1,23 +1,22 @@
 import { RequestHandler } from '../request-handler.js';
-import { MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap } from './method-map.js';
+import { BaseSocketTransport } from '../socket-transport.js';
+import { BaseSocket } from '../socket.js';
+import { MethodMap } from './method-map.js';
 
 export type HandlerMap<
 	TIncoming extends MethodMap,
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap,
-	TState extends object
+	TState extends object,
+	TSocket extends BaseSocket<TState> = BaseSocket<TState>,
+	TTransport extends BaseSocketTransport<TState> = BaseSocketTransport<TState>
 > = Partial<
 	{
 		[K in keyof TIncoming]:
 		RequestHandler<
 			Parameters<TIncoming[K]>[0],
 			ReturnType<TIncoming[K]>,
-			TIncoming,
-			TOutgoing,
-			TPrivateOutgoing,
-			TService,
-			TState
+			TState,
+			TSocket,
+			TTransport
 		>
 	}
 >;

@@ -1,7 +1,15 @@
 import { SignedAuthToken } from '@socket-mesh/auth';
 import { ChannelMap } from '@socket-mesh/channels';
-import { MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap, Socket, toError, wait } from '@socket-mesh/core';
+import {
+	AuthenticateEvent, AuthStateChangeEvent, BadAuthTokenEvent, BaseSocket, CloseEvent,
+	ConnectEvent, ConnectingEvent, DeauthenticateEvent, DisconnectEvent, ErrorEvent,
+	FunctionReturnType, InvokeMethodOptions, InvokeServiceOptions, MessageEvent,
+	PingEvent, PongEvent, PrivateMethodMap, PublicMethodMap, RemoveAuthTokenEvent, RequestEvent,
+	ResponseEvent, ServiceMap, ServiceMethodName, ServiceName, Socket, SocketEvent, toError,
+	TypedRequestEvent, TypedResponseEvent, TypedSocketEvent, wait
+} from '@socket-mesh/core';
 import { hydrateError } from '@socket-mesh/errors';
+import { DemuxedConsumableStream, StreamEvent } from '@socket-mesh/stream-demux';
 
 import { ClientChannels } from './client-channels.js';
 import { AutoReconnectOptions, ClientSocketOptions, ConnectOptions, parseClientOptions } from './client-socket-options.js';
@@ -14,25 +22,26 @@ import { ClientPrivateMap } from './maps/client-map.js';
 import { ServerPrivateMap } from './maps/server-map.js';
 
 export class ClientSocket<
+	TIncoming extends PublicMethodMap = {},
 	TOutgoing extends PublicMethodMap = {},
 	TChannel extends ChannelMap = ChannelMap,
 	TService extends ServiceMap = {},
 	TState extends object = {},
-	TIncoming extends MethodMap = {},
 	TPrivateOutgoing extends PrivateMethodMap = {}
-> extends Socket<
+> extends BaseSocket<TState> implements Socket<
 	TIncoming & ClientPrivateMap,
 	TOutgoing,
-	TPrivateOutgoing & ServerPrivateMap,
+	TState,
 	TService,
-	TState
-	> {
-	private readonly _clientTransport: ClientTransport<TIncoming, TService, TOutgoing, TPrivateOutgoing, TState>;
-	public readonly channels: ClientChannels<TChannel, TIncoming, TService, TOutgoing, TPrivateOutgoing, TState>;
+	{},
+	TPrivateOutgoing & ServerPrivateMap
+> {
+	private readonly _clientTransport: ClientTransport<TState>;
+	public readonly channels: ClientChannels<TChannel, TState>;
 
 	constructor(address: string | URL);
-	constructor(options: ClientSocketOptions<TOutgoing, TService, TIncoming, TPrivateOutgoing, TState>);
-	constructor(options: ClientSocketOptions<TOutgoing, TService, TIncoming, TPrivateOutgoing, TState> | string | URL) {
+	constructor(options: ClientSocketOptions<TState>);
+	constructor(options: ClientSocketOptions<TState> | string | URL) {
 		options = parseClientOptions(options);
 
 		options.handlers =
@@ -51,7 +60,7 @@ export class ClientSocket<
 		super(clientTransport, options);
 
 		this._clientTransport = clientTransport;
-		this.channels = new ClientChannels<TChannel, TIncoming, TService, TOutgoing, TPrivateOutgoing, TState>(this._clientTransport, options);
+		this.channels = new ClientChannels<TChannel, TState>(this._clientTransport, options);
 
 		if (options.autoConnect !== false) {
 			this.connect(options);
@@ -125,12 +134,69 @@ export class ClientSocket<
 		return await super.deauthenticate();
 	}
 
+	override emit(event: 'request', data: TypedRequestEvent<TIncoming & ClientPrivateMap, TService>): void;
+	override emit(event: 'response', data: TypedResponseEvent<TOutgoing, TPrivateOutgoing & ServerPrivateMap, TService>): void;
+	override emit(event: 'authStateChange', data: AuthStateChangeEvent): void;
+	override emit(event: 'authenticate', data: AuthenticateEvent): void;
+	override emit(event: 'badAuthToken', data: BadAuthTokenEvent): void;
+	override emit(event: 'close', data: CloseEvent): void;
+	override emit(event: 'connect', data: ConnectEvent): void;
+	override emit(event: 'connectAbort', data: DisconnectEvent): void;
+	override emit(event: 'connecting', data: ConnectingEvent): void;
+	override emit(event: 'deauthenticate', data: DeauthenticateEvent): void;
+	override emit(event: 'disconnect', data: DisconnectEvent): void;
+	override emit(event: 'end'): void;
+	override emit(event: 'error', data: ErrorEvent): void;
+	override emit(event: 'message', data: MessageEvent): void;
+	override emit(event: 'ping', data: PingEvent): void;
+	override emit(event: 'pong', data: PongEvent): void;
+	override emit(event: 'removeAuthToken', data: RemoveAuthTokenEvent): void;
+	override emit(event: 'request', data: RequestEvent): void;
+	override emit(event: 'response', data: ResponseEvent): void;
+	override emit(event: string, data?: SocketEvent): void {
+		(super.emit as (event: string, data?: SocketEvent) => void)(event, data);
+	}
+
+	override invoke<TMethod extends keyof TOutgoing & string>(method: TMethod, arg?: Parameters<TOutgoing[TMethod]>[0]): Promise<FunctionReturnType<TOutgoing[TMethod]>>;
+	override invoke<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(options: [TServiceName, TMethod, (false | number)?], arg?: Parameters<TService[TServiceName][TMethod]>[0]): Promise<FunctionReturnType<TService[TServiceName][TMethod]>>;
+	override invoke<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(options: InvokeServiceOptions<TService, TServiceName, TMethod>, arg?: Parameters<TService[TServiceName][TMethod]>[0]): Promise<FunctionReturnType<TService[TServiceName][TMethod]>>;
+	override invoke<TMethod extends keyof TOutgoing & string>(options: InvokeMethodOptions<TOutgoing, TMethod>, arg?: Parameters<TOutgoing[TMethod]>[0]): Promise<FunctionReturnType<TOutgoing[TMethod]>>;
+	override invoke(
+		methodOptions: [string, string, (false | number)?] | InvokeMethodOptions | InvokeServiceOptions | string,
+		arg?: unknown
+	): Promise<unknown> {
+		return super.invoke(methodOptions, arg);
+	}
+
 	public get isPingTimeoutDisabled(): boolean {
 		return this._clientTransport.isPingTimeoutDisabled;
 	}
 
 	public set isPingTimeoutDisabled(isDisabled: boolean) {
 		this._clientTransport.isPingTimeoutDisabled = isDisabled;
+	}
+
+	override listen(): DemuxedConsumableStream<StreamEvent<TypedSocketEvent<TIncoming & ClientPrivateMap, TOutgoing, TPrivateOutgoing & ServerPrivateMap, TService>>>;
+	override listen(event: 'authStateChange'): DemuxedConsumableStream<AuthStateChangeEvent>;
+	override listen(event: 'authenticate'): DemuxedConsumableStream<AuthenticateEvent>;
+	override listen(event: 'badAuthToken'): DemuxedConsumableStream<BadAuthTokenEvent>;
+	override listen(event: 'close'): DemuxedConsumableStream<CloseEvent>;
+	override listen(event: 'connect'): DemuxedConsumableStream<ConnectEvent>;
+	override listen(event: 'connectAbort'): DemuxedConsumableStream<DisconnectEvent>;
+	override listen(event: 'connecting'): DemuxedConsumableStream<ConnectingEvent>;
+	override listen(event: 'deauthenticate'): DemuxedConsumableStream<DeauthenticateEvent>;
+	override listen(event: 'disconnect'): DemuxedConsumableStream<DisconnectEvent>;
+	override listen(event: 'end'): DemuxedConsumableStream<void>;
+	override listen(event: 'error'): DemuxedConsumableStream<ErrorEvent>;
+	override listen(event: 'message'): DemuxedConsumableStream<MessageEvent>;
+	override listen(event: 'ping'): DemuxedConsumableStream<PingEvent>;
+	override listen(event: 'pong'): DemuxedConsumableStream<PongEvent>;
+	override listen(event: 'removeAuthToken'): DemuxedConsumableStream<RemoveAuthTokenEvent>;
+	override listen(event: 'request'): DemuxedConsumableStream<TypedRequestEvent<TIncoming & ClientPrivateMap, TService>>;
+	override listen(event: 'response'): DemuxedConsumableStream<TypedResponseEvent<TOutgoing, TPrivateOutgoing & ServerPrivateMap, TService>>;
+	override listen<U extends TypedSocketEvent<TIncoming & ClientPrivateMap, TOutgoing, TPrivateOutgoing & ServerPrivateMap, TService>, V = U>(event: string): DemuxedConsumableStream<V>;
+	override listen<U extends TypedSocketEvent<TIncoming & ClientPrivateMap, TOutgoing, TPrivateOutgoing & ServerPrivateMap, TService>, V = U>(event?: string): DemuxedConsumableStream<V> {
+		return super.listen<U, V>(event ?? '');
 	}
 
 	public get pingTimeoutMs(): number {
@@ -144,6 +210,15 @@ export class ClientSocket<
 	public reconnect(code?: number, reason?: string) {
 		this.disconnect(code, reason);
 		this.connect();
+	}
+
+	override transmit<TMethod extends keyof TOutgoing & string>(method: TMethod, arg?: Parameters<TOutgoing[TMethod]>[0]): Promise<void>;
+	override transmit<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(options: [TServiceName, TMethod], arg?: Parameters<TService[TServiceName][TMethod]>[0]): Promise<void>;
+	override transmit(
+		serviceAndMethod: [string, string] | string,
+		arg?: unknown
+	): Promise<void> {
+		return super.transmit(serviceAndMethod, arg);
 	}
 
 	get type(): 'client' {

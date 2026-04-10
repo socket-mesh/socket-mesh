@@ -1,101 +1,81 @@
 import ws from 'isomorphic-ws';
 
-import { HandlerMap } from '../maps/handler-map.js';
-import { MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap } from '../maps/method-map.js';
 import { AnyPacket } from '../packet.js';
+import { LooseHandlerMap } from '../request-handler.js';
 import { AnyRequest } from '../request.js';
 import { AnyResponse } from '../response.js';
-import { SocketTransport } from '../socket-transport.js';
-import { Socket, SocketStatus } from '../socket.js';
+import { BaseSocketTransport } from '../socket-transport.js';
+import { BaseSocket, SocketStatus } from '../socket.js';
+
+export type AnyPlugin = Plugin<any, any>;
 
 export interface DisconnectedPluginArgs<
-	TIncoming extends MethodMap,
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap,
-	TState extends object
-> extends PluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState> {
+	TSocket extends BaseSocket = BaseSocket,
+	TTransport extends BaseSocketTransport = BaseSocketTransport
+> extends PluginArgs<TSocket, TTransport> {
 	code: number,
 	reason?: string,
 	status: SocketStatus
 }
 
 export interface MessagePluginArgs<
-	TIncoming extends MethodMap,
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap,
-	TState extends object
-> extends PluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState> {
-	packet: AnyPacket<TIncoming, TService> | AnyResponse<TOutgoing, TPrivateOutgoing, TService>,
+	TSocket extends BaseSocket = BaseSocket,
+	TTransport extends BaseSocketTransport = BaseSocketTransport
+> extends PluginArgs<TSocket, TTransport> {
+	packet: AnyPacket | AnyResponse,
 	timestamp: Date
 }
 
 export interface MessageRawPluginArgs<
-	TIncoming extends MethodMap,
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap,
-	TState extends object
-> extends PluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState> {
+	TSocket extends BaseSocket = BaseSocket,
+	TTransport extends BaseSocketTransport = BaseSocketTransport
+> extends PluginArgs<TSocket, TTransport> {
 	message: string | ws.RawData,
 	promise: Promise<void>,
 	timestamp: Date
 }
 
 export interface Plugin<
-	TIncoming extends MethodMap,
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap,
-	TState extends object
+	TSocket extends BaseSocket = BaseSocket,
+	TTransport extends BaseSocketTransport = BaseSocketTransport
 > {
-	handlers?: HandlerMap<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>,
-	onAuthenticated?(options: PluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>): void,
-	onClose?(options: PluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>): void,
-	onDeauthenticate?(options: PluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>): void,
-	onDisconnected?(options: DisconnectedPluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>): void,
-	onEnd?(options: PluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>): void,
-	onMessage?(options: MessagePluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>): Promise<AnyPacket<TIncoming, TService> | AnyResponse<TOutgoing, TPrivateOutgoing, TService>>,
-	onMessageRaw?(options: MessageRawPluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>): Promise<string | ws.RawData>,
-	onOpen?(options: PluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>): void,
-	onReady?(options: PluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>): void,
-	sendRequest?(options: SendRequestPluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>): void,
-	sendResponse?(options: SendResponsePluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>): void,
+	handlers?: LooseHandlerMap,
+	onAuthenticated?(options: PluginArgs<TSocket, TTransport>): void,
+	onClose?(options: PluginArgs<TSocket, TTransport>): void,
+	onDeauthenticate?(options: PluginArgs<TSocket, TTransport>): void,
+	onDisconnected?(options: DisconnectedPluginArgs<TSocket, TTransport>): void,
+	onEnd?(options: PluginArgs<TSocket, TTransport>): void,
+	onMessage?(options: MessagePluginArgs<TSocket, TTransport>): Promise<AnyPacket | AnyResponse>,
+	onMessageRaw?(options: MessageRawPluginArgs<TSocket, TTransport>): Promise<string | ws.RawData>,
+	onOpen?(options: PluginArgs<TSocket, TTransport>): void,
+	onReady?(options: PluginArgs<TSocket, TTransport>): void,
+	sendRequest?(options: SendRequestPluginArgs<TSocket, TTransport>): void,
+	sendResponse?(options: SendResponsePluginArgs<TSocket, TTransport>): void,
 	type: string
 }
 
 export interface PluginArgs<
-	TIncoming extends MethodMap,
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap,
-	TState extends object
+	TSocket extends BaseSocket = BaseSocket,
+	TTransport extends BaseSocketTransport = BaseSocketTransport
 > {
-	socket: Socket<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>,
-	transport: SocketTransport<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>
+	socket: TSocket,
+	transport: TTransport
 }
 
 export type PluginType = 'handshake' | 'request' | 'response';
 
 export interface SendRequestPluginArgs<
-	TIncoming extends MethodMap,
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap,
-	TState extends object
-> extends PluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState> {
-	cont: (requests: AnyRequest<TOutgoing, TPrivateOutgoing, TService>[]) => void,
-	requests: AnyRequest<TOutgoing, TPrivateOutgoing, TService>[]
+	TSocket extends BaseSocket = BaseSocket,
+	TTransport extends BaseSocketTransport = BaseSocketTransport
+> extends PluginArgs<TSocket, TTransport> {
+	cont: (requests: AnyRequest[]) => void,
+	requests: AnyRequest[]
 }
 
 export interface SendResponsePluginArgs<
-	TIncoming extends MethodMap,
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap,
-	TState extends object
-> extends PluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState> {
-	cont: (requests: AnyResponse<TOutgoing, TPrivateOutgoing, TService>[]) => void,
-	responses: AnyResponse<TOutgoing, TPrivateOutgoing, TService>[]
+	TSocket extends BaseSocket = BaseSocket,
+	TTransport extends BaseSocketTransport = BaseSocketTransport
+> extends PluginArgs<TSocket, TTransport> {
+	cont: (requests: AnyResponse[]) => void,
+	responses: AnyResponse[]
 }

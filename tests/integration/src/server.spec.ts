@@ -1,11 +1,11 @@
 import { AuthToken } from '@socket-mesh/auth';
 import { Channel, ChannelOptions, isPublishOptions, JsonValue, UnsubscribeEvent } from '@socket-mesh/channels';
-import { ClientPrivateMap, ClientSocket, ClientSocketOptions } from '@socket-mesh/client';
+import { ClientSocket, ClientSocketOptions } from '@socket-mesh/client';
 import { InOrderPlugin, OfflinePlugin, RequestBatchingPlugin, ResponseBatchingPlugin, ServerPrivateMap } from '@socket-mesh/client';
 import { AnyPacket, AuthenticatedChangeEvent, AuthStateChangeEvent, CloseEvent, ConnectEvent, DisconnectEvent, isRequestPacket, MethodRequestPacket, PluginArgs, RequestHandlerArgs, SendRequestPluginArgs, toError, wait } from '@socket-mesh/core';
 import { HandshakeError, PluginBlockedError } from '@socket-mesh/errors';
 import localStorage from '@socket-mesh/local-storage';
-import { listen, Server, ServerOptions, ServerSocket, ServerSocketState } from '@socket-mesh/server';
+import { listen, Server, ServerOptions, ServerSocket } from '@socket-mesh/server';
 import { ExchangeClient, SimpleBroker } from '@socket-mesh/server/broker';
 import { ConnectionEvent, SocketAuthStateChangeEvent } from '@socket-mesh/server/events';
 import { AuthInfo, ServerRequestHandlerArgs } from '@socket-mesh/server/handlers';
@@ -61,7 +61,7 @@ type ServerIncomingMap = {
 	setAuthKey: (secret: jwt.Secret) => void
 };
 
-function bindFailureHandlers(server: Server<ServerIncomingMap, MyChannels, {}, ClientIncomingMap>) {
+function bindFailureHandlers(server: Server<ServerIncomingMap, ClientIncomingMap, MyChannels>) {
 	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 	if (SHOULD_LOG_ERRORS) {
 		(async () => {
@@ -149,12 +149,12 @@ async function setAuthKeyHandler({ options: secret, socket }: ServerRequestHandl
 	socket.server!.auth.authKey = secret;
 }
 
-const clientOptions: ClientSocketOptions<ServerIncomingMap> = {
+const clientOptions: ClientSocketOptions = {
 	address: `ws://127.0.0.1:${PORT_NUMBER}`,
 	authEngine: { authTokenName: AUTH_TOKEN_NAME }
 };
 
-const serverOptions: ServerOptions<ServerIncomingMap, MyChannels, {}, ClientIncomingMap> = {
+const serverOptions: ServerOptions<ServerIncomingMap, ClientIncomingMap, MyChannels> = {
 	ackTimeoutMs: 200,
 	authEngine: { authKey: SERVER_AUTH_KEY },
 	handlers: {
@@ -168,8 +168,8 @@ const serverOptions: ServerOptions<ServerIncomingMap, MyChannels, {}, ClientInco
 	}
 };
 
-let client: ClientSocket<ServerIncomingMap, MyChannels>;
-let server: Server<ServerIncomingMap, MyChannels, {}, ClientIncomingMap>;
+let client: ClientSocket<{}, ServerIncomingMap, MyChannels>;
+let server: Server<ServerIncomingMap, ClientIncomingMap, MyChannels>;
 
 describe('Server Tests', function () {
 	afterEach(async function () {
@@ -250,7 +250,7 @@ describe('Server Tests', function () {
 
 			const authenticateEvents: (AuthToken | null)[] = [];
 			const deauthenticateEvents: (AuthToken | null)[] = [];
-			const authenticationStateChangeEvents: SocketAuthStateChangeEvent<MyChannels, {}, ServerIncomingMap, ClientIncomingMap, {}, {}, {}, {}>[] = [];
+			const authenticationStateChangeEvents: SocketAuthStateChangeEvent<ServerIncomingMap, ClientIncomingMap, MyChannels, {}, {}, {}, {}, {}>[] = [];
 			const authStateChangeEvents: AuthStateChangeEvent[] = [];
 
 			(async () => {
@@ -320,7 +320,7 @@ describe('Server Tests', function () {
 		it('Should emit correct events/data when socket is deauthenticated', async function () {
 			global.localStorage.setItem(AUTH_TOKEN_NAME, VALID_SIGNED_AUTH_TOKEN_BOB);
 
-			const authenticationStateChangeEvents: SocketAuthStateChangeEvent<MyChannels, {}, ServerIncomingMap, ClientIncomingMap, {}, {}, {}, {}>[] = [];
+			const authenticationStateChangeEvents: SocketAuthStateChangeEvent<ServerIncomingMap, ClientIncomingMap, MyChannels, {}, {}, {}, {}, {}>[] = [];
 			const authStateChangeEvents: AuthStateChangeEvent[] = [];
 
 			(async () => {
@@ -383,7 +383,7 @@ describe('Server Tests', function () {
 			try {
 				await socket.deauthenticate(true);
 			} catch (err) {
-				error = err;
+				error = toError(err);
 			}
 
 			assert.notEqual(error, null);
@@ -660,7 +660,7 @@ describe('Server Tests', function () {
 									socket.disconnect();
 									await transport.setAuthorization(authToken, { rejectOnFailedDelivery: true });
 								} catch (err) {
-									error = err;
+									error = toError(err);
 								}
 
 								try {
@@ -675,7 +675,7 @@ describe('Server Tests', function () {
 									assert.strictEqual(serverWarnings[1]!.name, 'AuthError');
 									resolve();
 								} catch (err) {
-									reject(err);
+									reject(toError(err));
 								}
 							})();
 						}
@@ -729,7 +729,7 @@ describe('Server Tests', function () {
 									socket.disconnect();
 									await transport.setAuthorization(authToken);
 								} catch (err) {
-									error = err;
+									error = toError(err);
 								}
 
 								try {
@@ -740,7 +740,7 @@ describe('Server Tests', function () {
 
 									resolve();
 								} catch (err) {
-									reject(err);
+									reject(toError(err));
 								}
 							})();
 						}
@@ -790,7 +790,7 @@ describe('Server Tests', function () {
 								// assert.notEqual(verifyOptions, null);
 								// assert.notEqual(options.socket, null);
 							} catch (err) {
-								reject(err);
+								reject(toError(err));
 							}
 							resolve();
 							return {};
@@ -834,7 +834,7 @@ describe('Server Tests', function () {
 
 			client = new ClientSocket(clientOptions);
 
-			let serverSocket: null | ServerSocket<ServerIncomingMap, MyChannels, {}, ClientIncomingMap> = null;
+			let serverSocket: null | ServerSocket<ServerIncomingMap, ClientIncomingMap, MyChannels> = null;
 
 			(async () => {
 				for await (const { socket } of server.listen('handshake')) {
@@ -868,7 +868,7 @@ describe('Server Tests', function () {
 					plugins: [
 						new OfflinePlugin(),
 						{
-							sendRequest: ({ cont, requests }: SendRequestPluginArgs<ClientPrivateMap, {}, ServerPrivateMap, {}, { }>) => {
+							sendRequest: ({ cont, requests }: SendRequestPluginArgs) => {
 								cont(
 									requests.map(
 										(req) => {
@@ -926,7 +926,7 @@ describe('Server Tests', function () {
 			client = new ClientSocket(
 				{
 					plugins: [{
-						onOpen({ transport }: PluginArgs<ClientPrivateMap, {}, ServerPrivateMap, {}, { }>) {
+						onOpen({ transport }: PluginArgs) {
 							transport.send(Buffer.alloc(0));
 						},
 						type: 'onOpen'
@@ -954,7 +954,7 @@ describe('Server Tests', function () {
 			client = new ClientSocket(
 				{
 					plugins: [{
-						onOpen({ transport }: PluginArgs<ClientPrivateMap, {}, ServerPrivateMap, {}, { }>) {
+						onOpen({ transport }: PluginArgs) {
 							transport.send('');
 						},
 						type: 'onOpen'
@@ -981,7 +981,7 @@ describe('Server Tests', function () {
 			client = new ClientSocket(
 				{
 					plugins: [{
-						onOpen({ transport }: PluginArgs<ClientPrivateMap, {}, ServerPrivateMap, {}, { }>) {
+						onOpen({ transport }: PluginArgs) {
 							transport.send(Buffer.alloc(0));
 						},
 						type: 'onOpen'
@@ -1071,7 +1071,7 @@ describe('Server Tests', function () {
 			server = listen(PORT_NUMBER, serverOptions);
 			bindFailureHandlers(server);
 
-			const connectionList: ConnectionEvent<MyChannels, {}, ServerIncomingMap, ClientIncomingMap, {}, {}, {}, {}>[] = [];
+			const connectionList: ConnectionEvent<ServerIncomingMap, ClientIncomingMap, MyChannels, {}, {}, {}, {}, {}>[] = [];
 
 			(async () => {
 				for await (const event of server.listen('connection')) {
@@ -1081,8 +1081,8 @@ describe('Server Tests', function () {
 
 			await server.listen('ready').once();
 
-			const clientList: ClientSocket<ServerIncomingMap, MyChannels>[] = [];
-			let client: ClientSocket<ServerIncomingMap, MyChannels>;
+			const clientList: ClientSocket<{}, ServerIncomingMap, MyChannels>[] = [];
+			let client: ClientSocket<{}, ServerIncomingMap, MyChannels>;
 
 			for (let i = 0; i < 100; i++) {
 				client = new ClientSocket(clientOptions);
@@ -1127,8 +1127,8 @@ describe('Server Tests', function () {
 
 			await server.listen('ready').once();
 
-			const clientList: ClientSocket<ServerIncomingMap, MyChannels>[] = [];
-			let client: ClientSocket<ServerIncomingMap, MyChannels>;
+			const clientList: ClientSocket<{}, ServerIncomingMap, MyChannels>[] = [];
+			let client: ClientSocket<{}, ServerIncomingMap, MyChannels>;
 
 			for (let i = 0; i < 100; i++) {
 				client = new ClientSocket({
@@ -1443,17 +1443,18 @@ describe('Server Tests', function () {
 					plugins: [new InOrderPlugin()],
 					...serverOptions,
 					handlers: {
-						foo: async ({ options: data, socket }: RequestHandlerArgs<number, { }, ClientIncomingMap>) => {
+						foo: async ({ options: data, socket }: RequestHandlerArgs<number>) => {
+							const typedSocket = socket as ServerSocket<ServerIncomingMap, ClientIncomingMap, MyChannels>;
 							currentRequestData = data;
 							await wait(10);
 							(async () => {
 								try {
-									await socket.invoke('bla', data);
+									await typedSocket.invoke('bla', data);
 								} catch (err) {}
 							})();
 
 							try {
-								await socket.transmit('hi', data);
+								await typedSocket.transmit('hi', data);
 							} catch (err) {}
 
 							if (data === 10) {
@@ -1725,7 +1726,7 @@ describe('Server Tests', function () {
 			try {
 				result = await client.invoke('customProc', { bad: true });
 			} catch (err) {
-				error = err;
+				error = toError(err);
 			}
 			assert.notEqual(error, null);
 			assert.strictEqual(error!.name, 'BadCustomError');
@@ -1815,7 +1816,7 @@ describe('Server Tests', function () {
 		it('Should be able to getOutboundBackpressure() on a socket object', async function () {
 			const backpressureHistory: number[] = [];
 			const requestStream =
-				new WritableConsumableStream<SendRequestPluginArgs<ServerIncomingMap & ServerPrivateMap, ClientIncomingMap, ClientPrivateMap, {}, ServerSocketState>>();
+				new WritableConsumableStream<SendRequestPluginArgs>();
 
 			(async () => {
 				for await (const { cont, requests } of requestStream) {
@@ -2440,7 +2441,7 @@ describe('Server Tests', function () {
 			bindFailureHandlers(server);
 
 			const errorList: Error[] = [];
-			let serverSocket: ServerSocket<ServerIncomingMap, MyChannels, {}, ClientIncomingMap>;
+			let serverSocket: ServerSocket<ServerIncomingMap, ClientIncomingMap, MyChannels>;
 			let wasKickOutCalled = false;
 
 			(async () => {
@@ -2499,7 +2500,7 @@ describe('Server Tests', function () {
 							// Each subscription should pass through the plugin individually, even
 							// though they were sent as a batch/array.
 							async onMessage({ packet }) {
-								if (isRequestPacket(packet) && packet.method === '#subscribe') {
+								if (isRequestPacket<ServerPrivateMap>(packet) && packet.method === '#subscribe') {
 									subscribePluginCounter++;
 									assert.strictEqual(packet.data.channel.indexOf('my-channel-'), 0);
 									if (packet.data.channel === 'my-channel-10') {
@@ -3024,7 +3025,7 @@ describe('Server Tests', function () {
 						try {
 							await transport.setAuthorization({ username: 'alice' });
 						} catch (error) {
-							setAuthTokenError = error;
+							setAuthTokenError = toError(error);
 						}
 					},
 					type: 'Handshake Plugin'
@@ -3091,7 +3092,7 @@ describe('Server Tests', function () {
 		describe('onMessage', function () {
 			it('Should run INVOKE action in plugin if client invokes an RPC', async function () {
 				let wasPluginExecuted = false;
-				let pluginPacket: MethodRequestPacket<ServerIncomingMap & ServerPrivateMap, 'proc'> | null = null;
+				let pluginPacket: MethodRequestPacket | null = null;
 
 				server.addPlugin({
 					async onMessage({ packet }) {
@@ -3118,7 +3119,7 @@ describe('Server Tests', function () {
 
 			it('Should send back custom Error if INVOKE action in plugin blocks the client RPC', async function () {
 				let wasPluginExecuted = false;
-				let pluginPacket: AnyPacket<ServerIncomingMap & ServerPrivateMap, {}> | null = null;
+				let pluginPacket: AnyPacket | null = null;
 
 				server.addPlugin({
 					async onMessage({ packet }) {
@@ -3257,7 +3258,7 @@ describe('Server Tests', function () {
 				try {
 					await client.channels.invokePublish('hello', 'world');
 				} catch (err) {
-					error = err;
+					error = toError(err);
 				}
 				await wait(100);
 

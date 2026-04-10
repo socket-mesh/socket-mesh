@@ -1,12 +1,12 @@
 import { ChannelMap, SubscribeEvent, SubscribeFailEvent, SubscribeStateChangeEvent, UnsubscribeEvent } from '@socket-mesh/channels';
-import { ClientSocket, ServerPrivateMap } from '@socket-mesh/client';
+import { ClientPrivateMap, ClientSocket, ServerPrivateMap } from '@socket-mesh/client';
 import {
 	AuthenticateEvent, AuthStateChangeEvent, BadAuthTokenEvent, ConnectEvent, ConnectingEvent, DeauthenticateEvent,
-	DisconnectEvent, MessageEvent, PingEvent, PongEvent, PrivateMethodMap, PublicMethodMap, RemoveAuthTokenEvent, RequestEvent,
-	ResponseEvent,
+	DisconnectEvent, MessageEvent, PingEvent, PongEvent, PrivateMethodMap, PublicMethodMap,
+	RemoveAuthTokenEvent,
 	CloseEvent as SCloseEvent,
 	ErrorEvent as SErrorEvent,
-	ServiceMap
+	ServiceMap, TypedRequestEvent, TypedResponseEvent
 } from '@socket-mesh/core';
 import { IncomingMessage } from 'http';
 
@@ -15,16 +15,16 @@ import { ServerSocket } from '../server-socket.js';
 export interface CloseEvent {}
 
 export interface ConnectionEvent<
-	TChannel extends ChannelMap,
-	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
 	TOutgoing extends PublicMethodMap,
+	TChannel extends ChannelMap,
+	TService extends ServiceMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
+	TServerState extends object
 > {
-	socket: ServerSocket<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>,
+	socket: ServerSocket<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>,
 	upgradeReq: IncomingMessage
 }
 
@@ -33,16 +33,16 @@ export interface ErrorEvent {
 }
 
 export interface HandshakeEvent<
-	TChannel extends ChannelMap,
-	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
 	TOutgoing extends PublicMethodMap,
+	TChannel extends ChannelMap,
+	TService extends ServiceMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
+	TServerState extends object
 > {
-	socket: ServerSocket<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
+	socket: ServerSocket<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
 }
 
 export interface HeadersEvent {
@@ -53,257 +53,257 @@ export interface HeadersEvent {
 export interface ListeningEvent {}
 
 export type ServerEvent<
-	TChannel extends ChannelMap,
-	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
 	TOutgoing extends PublicMethodMap,
+	TChannel extends ChannelMap,
+	TService extends ServiceMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
+	TServerState extends object
 > =
 	CloseEvent
-	| ConnectionEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
+	| ConnectionEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
 	| ErrorEvent
-	| HandshakeEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
+	| HandshakeEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
 	| HeadersEvent
 	| ListeningEvent
-	| SocketAuthenticateEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
-	| SocketAuthStateChangeEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
-	| SocketBadAuthTokenEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
-	| SocketCloseEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
-	| SocketConnectEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
-	| SocketConnectingEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
-	| SocketDeauthenticateEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
-	| SocketDisconnectEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
-	| SocketErrorEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
-	| SocketMessageEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
-	| SocketPingEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
-	| SocketPongEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
-	| SocketRemoveAuthTokenEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
-	| SocketRequestEvent<TService, TIncoming, TPrivateIncoming>
-	| SocketResponseEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
+	| SocketAuthenticateEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
+	| SocketAuthStateChangeEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
+	| SocketBadAuthTokenEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
+	| SocketCloseEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
+	| SocketConnectEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
+	| SocketConnectingEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
+	| SocketDeauthenticateEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
+	| SocketDisconnectEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
+	| SocketErrorEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
+	| SocketMessageEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
+	| SocketPingEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
+	| SocketPongEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
+	| SocketRemoveAuthTokenEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
+	| SocketRequestEvent<TIncoming, TService, TPrivateIncoming>
+	| SocketResponseEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
 	| WarningEvent;
 
 export interface ServerSocketEvent<
-	TChannel extends ChannelMap,
-	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
 	TOutgoing extends PublicMethodMap,
+	TChannel extends ChannelMap,
+	TService extends ServiceMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
+	TServerState extends object
 > {
 	socket:
-		ClientSocket<PublicMethodMap, TChannel, TService, TState, TOutgoing & TPrivateOutgoing, TPrivateIncoming>
-		| ServerSocket<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
+		ClientSocket<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateOutgoing>
+		| ServerSocket<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
 }
 
 export type SocketAuthenticateEvent<
-	TChannel extends ChannelMap,
-	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
 	TOutgoing extends PublicMethodMap,
+	TChannel extends ChannelMap,
+	TService extends ServiceMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
-> = AuthenticateEvent & ServerSocketEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
+	TServerState extends object
+> = AuthenticateEvent & ServerSocketEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>;
 
 export type SocketAuthStateChangeEvent<
-	TChannel extends ChannelMap,
-	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
 	TOutgoing extends PublicMethodMap,
+	TChannel extends ChannelMap,
+	TService extends ServiceMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
-> = AuthStateChangeEvent & ServerSocketEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
+	TServerState extends object
+> = AuthStateChangeEvent & ServerSocketEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>;
 
 export type SocketBadAuthTokenEvent<
-	TChannel extends ChannelMap,
-	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
 	TOutgoing extends PublicMethodMap,
+	TChannel extends ChannelMap,
+	TService extends ServiceMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
-> = BadAuthTokenEvent & ServerSocketEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
+	TServerState extends object
+> = BadAuthTokenEvent & ServerSocketEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>;
 
 export type SocketCloseEvent<
-	TChannel extends ChannelMap,
-	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
 	TOutgoing extends PublicMethodMap,
+	TChannel extends ChannelMap,
+	TService extends ServiceMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
-> = SCloseEvent & ServerSocketEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
+	TServerState extends object
+> = SCloseEvent & ServerSocketEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>;
 
 export type SocketConnectEvent<
-	TChannel extends ChannelMap,
-	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
 	TOutgoing extends PublicMethodMap,
+	TChannel extends ChannelMap,
+	TService extends ServiceMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
-> = ConnectEvent & ServerSocketEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
+	TServerState extends object
+> = ConnectEvent & ServerSocketEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>;
 
 export type SocketConnectingEvent<
-	TChannel extends ChannelMap,
-	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
 	TOutgoing extends PublicMethodMap,
+	TChannel extends ChannelMap,
+	TService extends ServiceMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
-> = ConnectingEvent & ServerSocketEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
+	TServerState extends object
+> = ConnectingEvent & ServerSocketEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>;
 
 export type SocketDeauthenticateEvent<
-	TChannel extends ChannelMap,
-	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
 	TOutgoing extends PublicMethodMap,
+	TChannel extends ChannelMap,
+	TService extends ServiceMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
-> = DeauthenticateEvent & ServerSocketEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
+	TServerState extends object
+> = DeauthenticateEvent & ServerSocketEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>;
 
 export type SocketDisconnectEvent<
-	TChannel extends ChannelMap,
-	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
 	TOutgoing extends PublicMethodMap,
+	TChannel extends ChannelMap,
+	TService extends ServiceMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
-> = DisconnectEvent & ServerSocketEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
+	TServerState extends object
+> = DisconnectEvent & ServerSocketEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>;
 
 export type SocketErrorEvent<
-	TChannel extends ChannelMap,
-	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
 	TOutgoing extends PublicMethodMap,
+	TChannel extends ChannelMap,
+	TService extends ServiceMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
-> = SErrorEvent & ServerSocketEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
+	TServerState extends object
+> = SErrorEvent & ServerSocketEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>;
 
 export type SocketMessageEvent<
-	TChannel extends ChannelMap,
-	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
 	TOutgoing extends PublicMethodMap,
+	TChannel extends ChannelMap,
+	TService extends ServiceMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
-> = MessageEvent & ServerSocketEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
+	TServerState extends object
+> = MessageEvent & ServerSocketEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>;
 
 export type SocketPingEvent<
-	TChannel extends ChannelMap,
-	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
 	TOutgoing extends PublicMethodMap,
+	TChannel extends ChannelMap,
+	TService extends ServiceMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
-> = PingEvent & ServerSocketEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
+	TServerState extends object
+> = PingEvent & ServerSocketEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>;
 
 export type SocketPongEvent<
-	TChannel extends ChannelMap,
-	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
 	TOutgoing extends PublicMethodMap,
+	TChannel extends ChannelMap,
+	TService extends ServiceMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
-> = PongEvent & ServerSocketEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
+	TServerState extends object
+> = PongEvent & ServerSocketEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>;
 
 export type SocketRemoveAuthTokenEvent<
-	TChannel extends ChannelMap,
-	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
 	TOutgoing extends PublicMethodMap,
+	TChannel extends ChannelMap,
+	TService extends ServiceMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
-> = RemoveAuthTokenEvent & ServerSocketEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
+	TServerState extends object
+> = RemoveAuthTokenEvent & ServerSocketEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>;
 
 export type SocketRequestEvent<
-	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
+	TService extends ServiceMap,
 	TPrivateIncoming extends PrivateMethodMap
-> = RequestEvent<TIncoming & TPrivateIncoming & ServerPrivateMap, TService>;
+> = TypedRequestEvent<TIncoming & TPrivateIncoming & ServerPrivateMap, TService>;
 
 export type SocketResponseEvent<
-	TChannel extends ChannelMap,
-	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
 	TOutgoing extends PublicMethodMap,
+	TChannel extends ChannelMap,
+	TService extends ServiceMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
-> = ResponseEvent<TOutgoing, TPrivateOutgoing, TService>
-	& ServerSocketEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
+	TServerState extends object
+> = TypedResponseEvent<TOutgoing, TPrivateOutgoing & ClientPrivateMap, TService>
+	& ServerSocketEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>;
 
 export type SocketSubscribeEvent<
-	TChannel extends ChannelMap,
-	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
 	TOutgoing extends PublicMethodMap,
+	TChannel extends ChannelMap,
+	TService extends ServiceMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
-> = SubscribeEvent & ServerSocketEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
+	TServerState extends object
+> = SubscribeEvent & ServerSocketEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>;
 
 export type SocketSubscribeFailEvent<
-	TChannel extends ChannelMap,
-	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
 	TOutgoing extends PublicMethodMap,
+	TChannel extends ChannelMap,
+	TService extends ServiceMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
-> = SubscribeFailEvent & ServerSocketEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
+	TServerState extends object
+> = SubscribeFailEvent & ServerSocketEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>;
 
 export type SocketSubscribeStateChangeEvent<
-	TChannel extends ChannelMap,
-	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
 	TOutgoing extends PublicMethodMap,
+	TChannel extends ChannelMap,
+	TService extends ServiceMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
-> = SubscribeStateChangeEvent & ServerSocketEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
+	TServerState extends object
+> = SubscribeStateChangeEvent & ServerSocketEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>;
 
 export type SocketUnsubscribeEvent<
-	TChannel extends ChannelMap,
-	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
 	TOutgoing extends PublicMethodMap,
+	TChannel extends ChannelMap,
+	TService extends ServiceMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
-> = UnsubscribeEvent & ServerSocketEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
+	TServerState extends object
+> = UnsubscribeEvent & ServerSocketEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>;
 
 export interface WarningEvent {
 	warning: Error
