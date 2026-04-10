@@ -223,8 +223,8 @@ export class SocketTransport<
 		methodOptions: [string, string, (false | number)?] | InvokeMethodOptions | InvokeServiceOptions | string,
 		arg?: unknown
 	): [Promise<unknown>, () => void] {
-		let methodRequest: Omit<InvokeMethodRequest<any, any>, 'promise'> | undefined;
-		let serviceRequest: Omit<InvokeServiceRequest<any, any, any>, 'promise'> | undefined;
+		let methodRequest: Omit<InvokeMethodRequest, 'promise'> | undefined;
+		let serviceRequest: Omit<InvokeServiceRequest, 'promise'> | undefined;
 		let service: string | undefined;
 		let ackTimeoutMs: false | number | undefined;
 
@@ -322,7 +322,7 @@ export class SocketTransport<
 
 		const request = Object.assign(baseRequest, { promise });
 
-		this.onInvoke(request as AnyRequest<TOutgoing, TPrivateOutgoing, TService>);
+		this.onInvoke(request as AnyRequest);
 
 		return [promise, abort!];
 	}
@@ -381,7 +381,7 @@ export class SocketTransport<
 		this._socket.emit('error', { error });
 	}
 
-	protected onInvoke(request: AnyRequest<TOutgoing, TPrivateOutgoing, TService>): void {
+	protected onInvoke(request: AnyRequest): void {
 		this.sendRequest([request]);
 	}
 
@@ -545,7 +545,7 @@ export class SocketTransport<
 		this.onMessage(event.data, false);
 	}
 
-	protected onTransmit(request: AnyRequest<TOutgoing, TPrivateOutgoing, TService>): void {
+	protected onTransmit(request: AnyRequest): void {
 		this.sendRequest([request]);
 	}
 
@@ -593,9 +593,9 @@ export class SocketTransport<
 		});
 	}
 
-	protected sendRequest(requests: (AnyRequest<TOutgoing, TPrivateOutgoing, TService>)[]): void;
-	protected sendRequest(index: number, requests: (AnyRequest<TOutgoing, TPrivateOutgoing, TService>)[]): void;
-	protected sendRequest(index: (AnyRequest<TOutgoing, TPrivateOutgoing, TService>)[] | number, requests?: (AnyRequest<TOutgoing, TPrivateOutgoing, TService>)[]): void {
+	protected sendRequest(requests: AnyRequest[]): void;
+	protected sendRequest(index: number, requests: AnyRequest[]): void;
+	protected sendRequest(index: AnyRequest[] | number, requests?: AnyRequest[]): void {
 		if (typeof index === 'object') {
 			requests = index;
 			index = 0;
@@ -843,8 +843,8 @@ export class SocketTransport<
 		serviceAndMethod: [string, string] | string,
 		arg?: unknown
 	): Promise<void> {
-		let serviceRequest: Omit<TransmitServiceRequest<any, any, any>, 'promise'> | undefined;
-		let methodRequest: Omit<TransmitMethodRequest<any, any>, 'promise'> | undefined;
+		let serviceRequest: Omit<TransmitServiceRequest, 'promise'> | undefined;
+		let methodRequest: Omit<TransmitMethodRequest, 'promise'> | undefined;
 
 		if (Array.isArray(serviceAndMethod)) {
 			serviceRequest = {
@@ -879,7 +879,7 @@ export class SocketTransport<
 
 		const request = Object.assign(baseRequest, { promise });
 
-		this.onTransmit(request as AnyRequest<TOutgoing, TPrivateOutgoing, TService>);
+		this.onTransmit(request as AnyRequest);
 
 		return request.promise;
 	}

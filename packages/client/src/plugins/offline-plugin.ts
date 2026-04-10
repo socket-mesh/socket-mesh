@@ -9,9 +9,9 @@ export class OfflinePlugin<
 	TService extends ServiceMap,
 	TState extends object
 > implements Plugin<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState> {
-	private _continue: ((requests: AnyRequest<TOutgoing, TPrivateOutgoing, TService>[], cb?: (error?: Error) => void) => void) | null;
+	private _continue: ((requests: AnyRequest[], cb?: (error?: Error) => void) => void) | null;
 	private _isReady: boolean;
-	private _requests: AnyRequest<TOutgoing, TPrivateOutgoing, TService>[][];
+	private _requests: AnyRequest[][];
 
 	type: 'offline';
 
@@ -56,11 +56,11 @@ export class OfflinePlugin<
 			return;
 		}
 
-		const systemRequests = requests.filter(item => SYSTEM_METHODS.indexOf(String(item.method)) > -1);
-		let otherRequests: AnyRequest<TOutgoing, TPrivateOutgoing, TService>[] = requests;
+		const systemRequests = requests.filter(item => SYSTEM_METHODS.indexOf(item.method) > -1);
+		let otherRequests: AnyRequest[] = requests;
 
 		if (systemRequests.length) {
-			otherRequests = (systemRequests.length === requests.length) ? [] : requests.filter(item => SYSTEM_METHODS.indexOf(String(item.method)) < 0);
+			otherRequests = (systemRequests.length === requests.length) ? [] : requests.filter(item => SYSTEM_METHODS.indexOf(item.method) < 0);
 		}
 
 		if (otherRequests.length) {

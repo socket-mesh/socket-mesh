@@ -1,60 +1,42 @@
-import { MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap } from './maps/method-map.js';
 import { toArray } from './utils.js';
 
-export type AnyRequest<
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap
-> =
-	MethodRequest<TOutgoing> | MethodRequest<TPrivateOutgoing> | ServiceRequest<TService>;
+export type AnyRequest = MethodRequest | ServiceRequest;
 
-export interface InvokeMethodRequest<TMethodMap extends MethodMap, TMethod extends keyof TMethodMap> extends TransmitMethodRequest<TMethodMap, TMethod> {
+export interface InvokeMethodRequest extends TransmitMethodRequest {
 	ackTimeoutMs: false | number,
-	callback: ((err: Error | null, result?: TMethodMap[TMethod]) => void) | null,
+	callback: ((err: Error | null, result?: unknown) => void) | null,
 	cid: number,
 	timeoutId?: NodeJS.Timeout
 }
 
-export interface InvokeServiceRequest<TServiceMap extends ServiceMap, TService extends keyof TServiceMap, TMethod extends keyof TServiceMap[TService]> extends TransmitServiceRequest<TServiceMap, TService, TMethod> {
+export interface InvokeServiceRequest extends TransmitServiceRequest {
 	ackTimeoutMs: false | number,
-	callback: ((err: Error | null, result?: TServiceMap[TService][TMethod]) => void) | null,
+	callback: ((err: Error | null, result?: unknown) => void) | null,
 	cid: number,
 	timeoutId?: NodeJS.Timeout
 }
 
-export type MethodRequest<TMethodMap extends MethodMap> =
-	{ [TMethod in keyof TMethodMap]:
-		InvokeMethodRequest<TMethodMap, TMethod> | TransmitMethodRequest<TMethodMap, TMethod>
-	}[keyof TMethodMap];
+export type MethodRequest = InvokeMethodRequest | TransmitMethodRequest;
 
 export interface Request {
 	promise: Promise<void>,
 	sentCallback?: (err?: Error) => void
 }
 
-export type ServiceRequest<TServiceMap extends ServiceMap> =
-	{ [TService in keyof TServiceMap]:
-		{ [TMethod in keyof TServiceMap[TService]]:
-			InvokeServiceRequest<TServiceMap, TService, TMethod> | TransmitServiceRequest<TServiceMap, TService, TMethod>
-		}[keyof TServiceMap[TService]]
-	}[keyof TServiceMap];
+export type ServiceRequest = InvokeServiceRequest | TransmitServiceRequest;
 
-export interface TransmitMethodRequest<TMethodMap extends MethodMap, TMethod extends keyof TMethodMap> extends Request {
-	data?: Parameters<TMethodMap[TMethod]>[0],
-	method: TMethod
+export interface TransmitMethodRequest extends Request {
+	data?: unknown,
+	method: string
 }
 
-export interface TransmitServiceRequest<TServiceMap extends ServiceMap, TService extends keyof TServiceMap, TMethod extends keyof TServiceMap[TService]> extends Request {
-	data?: Parameters<TServiceMap[TService][TMethod]>[0],
-	method: TMethod,
-	service: TService
+export interface TransmitServiceRequest extends Request {
+	data?: unknown,
+	method: string,
+	service: string
 }
 
-export function abortRequest<
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap
->(request: AnyRequest<TOutgoing, TPrivateOutgoing, TService>, err: Error): void {
+export function abortRequest(request: AnyRequest, err: Error): void {
 	if (request.sentCallback) {
 		request.sentCallback(err);
 	}
@@ -64,11 +46,7 @@ export function abortRequest<
 	}
 }
 
-export function isRequestDone<
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap
->(request: AnyRequest<TOutgoing, TPrivateOutgoing, TService>): boolean {
+export function isRequestDone(request: AnyRequest): boolean {
 	if ('callback' in request) {
 		return (request.callback === null);
 	}
@@ -76,16 +54,12 @@ export function isRequestDone<
 	return !request.sentCallback;
 }
 
-export class RequestCollection<
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap
-> {
+export class RequestCollection {
 	private readonly _callbacks: (() => void)[];
-	private readonly _requests: AnyRequest<TOutgoing, TPrivateOutgoing, TService>[];
+	private readonly _requests: AnyRequest[];
 
-	constructor(requests: AnyRequest<TOutgoing, TPrivateOutgoing, TService> | AnyRequest<TOutgoing, TPrivateOutgoing, TService>[]) {
-		this._requests = toArray(requests).filter(req => !isRequestDone<TOutgoing, TPrivateOutgoing, TService>(req));
+	constructor(requests: AnyRequest | AnyRequest[]) {
+		this._requests = toArray(requests).filter(req => !isRequestDone(req));
 		this._callbacks = [];
 	}
 
@@ -93,7 +67,7 @@ export class RequestCollection<
 		return this._requests.length === 0;
 	}
 
-	public get items(): ReadonlyArray<AnyRequest<TOutgoing, TPrivateOutgoing, TService>> {
+	public get items(): ReadonlyArray<AnyRequest> {
 		return this._requests;
 	}
 

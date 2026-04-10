@@ -85,8 +85,8 @@ export interface SendRequestPluginArgs<
 	TService extends ServiceMap,
 	TState extends object
 > extends PluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState> {
-	cont: (requests: AnyRequest<TOutgoing, TPrivateOutgoing, TService>[]) => void,
-	requests: AnyRequest<TOutgoing, TPrivateOutgoing, TService>[]
+	cont: (requests: AnyRequest[]) => void,
+	requests: AnyRequest[]
 }
 
 export interface SendResponsePluginArgs<

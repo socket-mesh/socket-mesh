@@ -135,13 +135,13 @@ export class ServerTransport<
 		this.socket.server.emit('socketError', { error, socket: this.socket });
 	}
 
-	protected override onInvoke(request: AnyRequest<TOutgoing, TPrivateOutgoing & ClientPrivateMap, TService>): void {
+	protected override onInvoke(request: AnyRequest): void {
 		if (request.method !== '#publish') {
 			super.onInvoke(request);
 			return;
 		}
 
-		this.onPublish(request.data!)
+		this.onPublish(request.data as PublishOptions)
 			.then(() => {
 				super.onInvoke(request);
 			})
@@ -216,12 +216,12 @@ export class ServerTransport<
 		this.socket.server.emit('socketResponse', { response, socket: this.socket });
 	}
 
-	protected override onTransmit(request: AnyRequest<TOutgoing, TPrivateOutgoing & ClientPrivateMap, TService>): void {
+	protected override onTransmit(request: AnyRequest): void {
 		if (request.method !== '#publish') {
 			super.onTransmit(request);
 			return;
 		}
-		this.onPublish(request.data!)
+		this.onPublish(request.data as PublishOptions)
 			.then(() => {
 				super.onTransmit(request);
 			})
