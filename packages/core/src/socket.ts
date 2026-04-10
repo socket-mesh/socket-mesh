@@ -6,7 +6,11 @@ import { DemuxedConsumableStream, StreamEvent } from '@socket-mesh/stream-demux'
 import { HandlerMap } from './maps/handler-map.js';
 import { MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap } from './maps/method-map.js';
 import { Plugin } from './plugins/plugin.js';
-import { AuthenticateEvent, AuthStateChangeEvent, BadAuthTokenEvent, CloseEvent, ConnectEvent, ConnectingEvent, DeauthenticateEvent, DisconnectEvent, ErrorEvent, MessageEvent, PingEvent, PongEvent, RemoveAuthTokenEvent, RequestEvent, ResponseEvent, SocketEvent } from './socket-event.js';
+import {
+	AuthenticateEvent, AuthStateChangeEvent, BadAuthTokenEvent, CloseEvent, ConnectEvent,
+	ConnectingEvent, DeauthenticateEvent, DisconnectEvent, ErrorEvent, MessageEvent, PingEvent,
+	PongEvent, RemoveAuthTokenEvent, RequestEvent, ResponseEvent, SocketEvent
+} from './socket-event.js';
 import { CallIdGenerator, InvokeMethodOptions, InvokeServiceOptions, SocketTransport } from './socket-transport.js';
 
 export interface SocketOptions<
@@ -45,7 +49,7 @@ export class Socket<
 	TPrivateOutgoing extends PrivateMethodMap,
 	TService extends ServiceMap,
 	TState extends object
-> extends AsyncStreamEmitter<SocketEvent<TIncoming, TOutgoing, TPrivateOutgoing, TService> | undefined> {
+> extends AsyncStreamEmitter<SocketEvent | undefined> {
 	private readonly _transport: SocketTransport<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>;
 	public readonly state: Partial<TState>;
 
@@ -87,9 +91,9 @@ export class Socket<
 	emit(event: 'ping', data: PingEvent): void;
 	emit(event: 'pong', data: PongEvent): void;
 	emit(event: 'removeAuthToken', data: RemoveAuthTokenEvent): void;
-	emit(event: 'request', data: RequestEvent<TIncoming, TService>): void;
-	emit(event: 'response', data: ResponseEvent<TOutgoing, TPrivateOutgoing, TService>): void;
-	emit(event: string, data?: SocketEvent<TIncoming, TOutgoing, TPrivateOutgoing, TService>): void {
+	emit(event: 'request', data: RequestEvent): void;
+	emit(event: 'response', data: ResponseEvent): void;
+	emit(event: string, data?: SocketEvent): void {
 		super.emit(event, data);
 	}
 
@@ -121,7 +125,7 @@ export class Socket<
 		return this._transport.invoke(methodOptions, arg)[0];
 	}
 
-	listen(): DemuxedConsumableStream<StreamEvent<SocketEvent<TIncoming, TOutgoing, TPrivateOutgoing, TService>>>;
+	listen(): DemuxedConsumableStream<StreamEvent<SocketEvent>>;
 	listen(event: 'authStateChange'): DemuxedConsumableStream<AuthStateChangeEvent>;
 	listen(event: 'authenticate'): DemuxedConsumableStream<AuthenticateEvent>;
 	listen(event: 'badAuthToken'): DemuxedConsumableStream<BadAuthTokenEvent>;
@@ -129,7 +133,7 @@ export class Socket<
 	listen(event: 'connect'): DemuxedConsumableStream<ConnectEvent>;
 	listen(event: 'connectAbort'): DemuxedConsumableStream<DisconnectEvent>;
 	listen(event: 'connecting'): DemuxedConsumableStream<ConnectingEvent>;
-	listen(event: 'deauthenticate'): DemuxedConsumableStream<AuthenticateEvent>;
+	listen(event: 'deauthenticate'): DemuxedConsumableStream<DeauthenticateEvent>;
 	listen(event: 'disconnect'): DemuxedConsumableStream<DisconnectEvent>;
 	listen(event: 'end'): DemuxedConsumableStream<void>;
 	listen(event: 'error'): DemuxedConsumableStream<ErrorEvent>;
@@ -137,10 +141,10 @@ export class Socket<
 	listen(event: 'ping'): DemuxedConsumableStream<PingEvent>;
 	listen(event: 'pong'): DemuxedConsumableStream<PongEvent>;
 	listen(event: 'removeAuthToken'): DemuxedConsumableStream<RemoveAuthTokenEvent>;
-	listen(event: 'request'): DemuxedConsumableStream<RequestEvent<TIncoming, TService>>;
-	listen(event: 'response'): DemuxedConsumableStream<ResponseEvent<TOutgoing, TPrivateOutgoing, TService>>;
-	listen<U extends SocketEvent<TIncoming, TOutgoing, TPrivateOutgoing, TService>, V = U>(event: string): DemuxedConsumableStream<V>;
-	listen<U extends SocketEvent<TIncoming, TOutgoing, TPrivateOutgoing, TService>, V = U>(event?: string): DemuxedConsumableStream<V> {
+	listen(event: 'request'): DemuxedConsumableStream<RequestEvent>;
+	listen(event: 'response'): DemuxedConsumableStream<ResponseEvent>;
+	listen<U extends SocketEvent, V = U>(event: string): DemuxedConsumableStream<V>;
+	listen<U extends SocketEvent, V = U>(event?: string): DemuxedConsumableStream<V> {
 		return super.listen(event ?? '');
 	}
 

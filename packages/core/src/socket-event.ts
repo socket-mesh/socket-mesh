@@ -2,8 +2,8 @@ import { AuthToken, SignedAuthToken } from '@socket-mesh/auth';
 import ws from 'isomorphic-ws';
 
 import { MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap } from './maps/method-map.js';
-import { MethodPacket, ServicePacket } from './packet.js';
-import { AnyResponse } from './response.js';
+import { AnyPacket, IncomingPacket } from './packet.js';
+import { AnyResponse, OutgoingResponse } from './response.js';
 
 export interface AuthenticatedChangeEvent {
 	authToken: AuthToken | null,
@@ -72,25 +72,29 @@ export interface RemoveAuthTokenEvent {
 }
 
 export interface RequestEvent<
-	TIncoming extends MethodMap,
-	TService extends ServiceMap
+	TIncoming extends MethodMap = never,
+	TService extends ServiceMap = never
 > {
-	request: MethodPacket<TIncoming> | ServicePacket<TService>
+	request: [TIncoming] extends [never]
+		? AnyPacket
+		: IncomingPacket<TIncoming, TService>
 }
 
 export interface ResponseEvent<
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap
+	TOutgoing extends PublicMethodMap = never,
+	TPrivateOutgoing extends PrivateMethodMap = never,
+	TService extends ServiceMap = never
 > {
-	response: AnyResponse<TOutgoing, TPrivateOutgoing, TService>
+	response: [TOutgoing] extends [never]
+		? AnyResponse
+		: OutgoingResponse<TOutgoing, TPrivateOutgoing, TService>
 }
 
 export type SocketEvent<
-	TIncoming extends MethodMap,
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap
+	TIncoming extends MethodMap = never,
+	TOutgoing extends PublicMethodMap = never,
+	TPrivateOutgoing extends PrivateMethodMap = never,
+	TService extends ServiceMap = never
 > =
 	AuthenticateEvent
 	| AuthStateChangeEvent

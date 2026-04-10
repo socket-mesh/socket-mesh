@@ -71,7 +71,7 @@ export class ServerTransport<
 	}
 
 	protected async handleInboudMessage(
-		{ packet, timestamp }: InboundMessage<TIncoming & TPrivateIncoming & ServerPrivateMap, TOutgoing, TPrivateOutgoing & ClientPrivateMap, TService>
+		{ packet, timestamp }: InboundMessage
 	): Promise<void> {
 		if ((packet === null || typeof packet !== 'object') && this.socket.server.strictHandshake && this.status === 'connecting') {
 			this.disconnect(4009);
@@ -191,7 +191,7 @@ export class ServerTransport<
 	}
 
 	protected override async onRequest(
-		packet: AnyPacket<TIncoming & TPrivateIncoming & ServerPrivateMap, TService>,
+		packet: AnyPacket,
 		timestamp: Date,
 		pluginError?: Error
 	): Promise<boolean> {
@@ -211,7 +211,7 @@ export class ServerTransport<
 		return wasHandled;
 	}
 
-	protected override onResponse(response: AnyResponse<TOutgoing, TPrivateOutgoing & ClientPrivateMap, TService>): void {
+	protected override onResponse(response: AnyResponse): void {
 		super.onResponse(response);
 		this.socket.server.emit('socketResponse', { response, socket: this.socket });
 	}

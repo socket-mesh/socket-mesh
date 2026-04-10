@@ -1,9 +1,9 @@
 import { ChannelMap, SubscribeEvent, SubscribeFailEvent, SubscribeStateChangeEvent, UnsubscribeEvent } from '@socket-mesh/channels';
-import { ClientSocket, ServerPrivateMap } from '@socket-mesh/client';
+import { ClientPrivateMap, ClientSocket, ServerPrivateMap } from '@socket-mesh/client';
 import {
 	AuthenticateEvent, AuthStateChangeEvent, BadAuthTokenEvent, ConnectEvent, ConnectingEvent, DeauthenticateEvent,
-	DisconnectEvent, MessageEvent, PingEvent, PongEvent, PrivateMethodMap, PublicMethodMap, RemoveAuthTokenEvent, RequestEvent,
-	ResponseEvent,
+	DisconnectEvent, MessageEvent, PingEvent, PongEvent, PrivateMethodMap, PublicMethodMap,
+	RemoveAuthTokenEvent, RequestEvent, ResponseEvent,
 	CloseEvent as SCloseEvent,
 	ErrorEvent as SErrorEvent,
 	ServiceMap
@@ -258,7 +258,7 @@ export type SocketResponseEvent<
 	TPrivateOutgoing extends PrivateMethodMap,
 	TServerState extends object,
 	TState extends object
-> = ResponseEvent<TOutgoing, TPrivateOutgoing, TService>
+> = ResponseEvent<TOutgoing, TPrivateOutgoing & ClientPrivateMap, TService>
 	& ServerSocketEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
 
 export type SocketSubscribeEvent<

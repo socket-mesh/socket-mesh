@@ -27,7 +27,7 @@ export interface MessagePluginArgs<
 	TService extends ServiceMap,
 	TState extends object
 > extends PluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState> {
-	packet: AnyPacket<TIncoming, TService> | AnyResponse<TOutgoing, TPrivateOutgoing, TService>,
+	packet: AnyPacket | AnyResponse,
 	timestamp: Date
 }
 
@@ -56,7 +56,7 @@ export interface Plugin<
 	onDeauthenticate?(options: PluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>): void,
 	onDisconnected?(options: DisconnectedPluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>): void,
 	onEnd?(options: PluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>): void,
-	onMessage?(options: MessagePluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>): Promise<AnyPacket<TIncoming, TService> | AnyResponse<TOutgoing, TPrivateOutgoing, TService>>,
+	onMessage?(options: MessagePluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>): Promise<AnyPacket | AnyResponse>,
 	onMessageRaw?(options: MessageRawPluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>): Promise<string | ws.RawData>,
 	onOpen?(options: PluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>): void,
 	onReady?(options: PluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>): void,
@@ -96,6 +96,6 @@ export interface SendResponsePluginArgs<
 	TService extends ServiceMap,
 	TState extends object
 > extends PluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState> {
-	cont: (requests: AnyResponse<TOutgoing, TPrivateOutgoing, TService>[]) => void,
-	responses: AnyResponse<TOutgoing, TPrivateOutgoing, TService>[]
+	cont: (requests: AnyResponse[]) => void,
+	responses: AnyResponse[]
 }

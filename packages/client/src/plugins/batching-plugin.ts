@@ -161,8 +161,8 @@ export class ResponseBatchingPlugin<
 	TService extends ServiceMap,
 	TState extends object
 > extends BatchingPlugin<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState, 'responseBatching'> {
-	private _continue: ((requests: AnyResponse<TOutgoing, TPrivateOutgoing, TService>[], cb?: (error?: Error) => void) => void) | null;
-	private _responses: AnyResponse<TOutgoing, TPrivateOutgoing, TService>[];
+	private _continue: ((requests: AnyResponse[], cb?: (error?: Error) => void) => void) | null;
+	private _responses: AnyResponse[];
 
 	constructor(options?: Omit<BatchingPluginOptions, 'type'>) {
 		super({

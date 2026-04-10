@@ -3091,7 +3091,7 @@ describe('Server Tests', function () {
 		describe('onMessage', function () {
 			it('Should run INVOKE action in plugin if client invokes an RPC', async function () {
 				let wasPluginExecuted = false;
-				let pluginPacket: MethodRequestPacket<ServerIncomingMap & ServerPrivateMap, 'proc'> | null = null;
+				let pluginPacket: MethodRequestPacket | null = null;
 
 				server.addPlugin({
 					async onMessage({ packet }) {
@@ -3118,7 +3118,7 @@ describe('Server Tests', function () {
 
 			it('Should send back custom Error if INVOKE action in plugin blocks the client RPC', async function () {
 				let wasPluginExecuted = false;
-				let pluginPacket: AnyPacket<ServerIncomingMap & ServerPrivateMap, {}> | null = null;
+				let pluginPacket: AnyPacket | null = null;
 
 				server.addPlugin({
 					async onMessage({ packet }) {

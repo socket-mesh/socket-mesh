@@ -5,25 +5,20 @@ import ws from 'isomorphic-ws';
 
 import { HandlerMap } from './maps/handler-map.js';
 import { MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap } from './maps/method-map.js';
-import { AnyPacket, isRequestPacket, MethodPacket } from './packet.js';
+import { AnyPacket, isRequestPacket } from './packet.js';
 import { Plugin } from './plugins/plugin.js';
 import { RequestHandlerArgs } from './request-handler.js';
 import { abortRequest, AnyRequest, InvokeMethodRequest, InvokeServiceRequest, isRequestDone, TransmitMethodRequest, TransmitServiceRequest } from './request.js';
-import { AnyResponse, isResponsePacket, MethodDataResponse } from './response.js';
+import { AnyResponse, DataResponse, isResponsePacket } from './response.js';
 import { Socket, SocketOptions, SocketStatus, StreamCleanupMode } from './socket.js';
 import { toArray, toError, wait } from './utils.js';
 
 export type CallIdGenerator = () => number;
 
-export interface InboundMessage<
-	TIncoming extends MethodMap,
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap
-> {
+export interface InboundMessage {
 	packet:
-		(AnyPacket<TIncoming, TService> | AnyResponse<TOutgoing, TPrivateOutgoing, TService>)[]
-		| (AnyPacket<TIncoming, TService> | AnyResponse<TOutgoing, TPrivateOutgoing, TService>) | null,
+		(AnyPacket | AnyResponse)[]
+		| (AnyPacket | AnyResponse) | null,
 	timestamp: Date
 }
 
@@ -188,12 +183,12 @@ export class SocketTransport<
 		return this._outboundPreparedMessageCount - this._outboundSentMessageCount;
 	}
 
-	protected async handleInboudMessage({ packet, timestamp }: InboundMessage<TIncoming, TOutgoing, TPrivateOutgoing, TService>): Promise<void> {
+	protected async handleInboudMessage({ packet, timestamp }: InboundMessage): Promise<void> {
 		if (packet === null) {
 			return;
 		}
 
-		packet = toArray<AnyPacket<TIncoming, TService> | AnyResponse<TOutgoing, TPrivateOutgoing, TService>>(packet);
+		packet = toArray<AnyPacket | AnyResponse>(packet);
 
 		for (let curPacket of packet) {
 			let pluginError: Error | undefined;
@@ -417,8 +412,8 @@ export class SocketTransport<
 
 		p.then((data) => {
 			const packet:
-				(AnyPacket<TIncoming, TService> | AnyResponse<TOutgoing, TPrivateOutgoing, TService>)[]
-				| (AnyPacket<TIncoming, TService> | AnyResponse<TOutgoing, TPrivateOutgoing, TService>)
+				(AnyPacket | AnyResponse)[]
+				| (AnyPacket | AnyResponse)
 				| null = this.decode(data);
 
 			this._socket.emit('message', { data, isBinary });
@@ -446,13 +441,13 @@ export class SocketTransport<
 
 	protected onPingPong(): void {}
 
-	protected async onRequest(packet: AnyPacket<TIncoming, TService>, timestamp: Date, pluginError?: Error): Promise<boolean> {
+	protected async onRequest(packet: AnyPacket, timestamp: Date, pluginError?: Error): Promise<boolean> {
 		this._socket.emit('request', { request: packet });
 
 		const timeoutAt = typeof packet.ackTimeoutMs === 'number' ? new Date(timestamp.valueOf() + packet.ackTimeoutMs) : undefined;
 		let wasHandled = false;
 
-		let response: AnyResponse<TOutgoing, TPrivateOutgoing, TService> | undefined;
+		let response: AnyResponse | undefined;
 		let error: Error | undefined;
 
 		if (pluginError) {
@@ -463,7 +458,7 @@ export class SocketTransport<
 				response = { error: pluginError, rid: packet.cid, timeoutAt };
 			}
 		} else {
-			const handler = this._handlers[(packet as MethodPacket<TIncoming>).method];
+			const handler = this._handlers[packet.method as keyof TIncoming];
 
 			if (handler) {
 				wasHandled = true;
@@ -472,7 +467,7 @@ export class SocketTransport<
 					const data = await handler(
 						new RequestHandlerArgs({
 							isRpc: !!packet.cid,
-							method: packet.method.toString(),
+							method: packet.method,
 							options: packet.data,
 							socket: this._socket,
 							timeoutMs: packet.ackTimeoutMs,
@@ -481,7 +476,7 @@ export class SocketTransport<
 					);
 
 					if (packet.cid) {
-						response = { data, rid: packet.cid, timeoutAt } as MethodDataResponse<TIncoming>;
+						response = { data, rid: packet.cid, timeoutAt } as DataResponse;
 					}
 				} catch (err) {
 					error = toError(err);
@@ -508,7 +503,7 @@ export class SocketTransport<
 		return wasHandled;
 	}
 
-	protected onResponse(response: AnyResponse<TOutgoing, TPrivateOutgoing, TService>, pluginError?: Error) {
+	protected onResponse(response: AnyResponse, pluginError?: Error) {
 		const map = this._callbackMap[response.rid];
 
 		if (map) {
@@ -549,7 +544,7 @@ export class SocketTransport<
 		this.sendRequest([request]);
 	}
 
-	protected onUnhandledRequest(_: AnyPacket<TIncoming, TService>): boolean {
+	protected onUnhandledRequest(_: AnyPacket): boolean {
 		return false;
 	}
 
@@ -702,9 +697,9 @@ export class SocketTransport<
 		});
 	}
 
-	protected sendResponse(responses: (AnyResponse<TOutgoing, TPrivateOutgoing, TService>)[]): void;
-	protected sendResponse(index: number, responses: (AnyResponse<TOutgoing, TPrivateOutgoing, TService>)[]): void;
-	protected sendResponse(index: (AnyResponse<TOutgoing, TPrivateOutgoing, TService>)[] | number, responses?: (AnyResponse<TOutgoing, TPrivateOutgoing, TService>)[]): void {
+	protected sendResponse(responses: AnyResponse[]): void;
+	protected sendResponse(index: number, responses: AnyResponse[]): void;
+	protected sendResponse(index: AnyResponse[] | number, responses?: AnyResponse[]): void {
 		if (typeof index === 'object') {
 			responses = index;
 			index = 0;

@@ -1,33 +1,34 @@
 import { MethodMap, ServiceMap } from './maps/method-map.js';
 
-export type AnyPacket<
-	TIncoming extends MethodMap,
-	TService extends ServiceMap
-> = MethodPacket<TIncoming> | ServicePacket<TService>;
+export type AnyPacket = MethodPacket | ServicePacket;
 
-export type MethodPacket<TMethodMap extends MethodMap> =
+export type IncomingMethodPacket<TMethodMap extends MethodMap> =
 	{ [TMethod in keyof TMethodMap]:
-		MethodRequestPacket<TMethodMap, TMethod>
+		IncomingMethodRequestPacket<TMethodMap, TMethod>
 	}[keyof TMethodMap];
 
-export interface MethodRequestPacket<TMethodMap extends MethodMap, TMethod extends keyof TMethodMap> extends RequestPacket {
+export interface IncomingMethodRequestPacket<
+	TMethodMap extends MethodMap,
+	TMethod extends keyof TMethodMap
+> extends RequestPacket {
 	ackTimeoutMs?: boolean | number,
 	data: Parameters<TMethodMap[TMethod]>[0],
 	method: TMethod
 }
 
-interface RequestPacket {
-	cid?: number
-}
+export type IncomingPacket<
+	TIncoming extends MethodMap,
+	TService extends ServiceMap
+> = IncomingMethodPacket<TIncoming> | IncomingServicePacket<TService>;
 
-export type ServicePacket<TServiceMap extends ServiceMap> =
+export type IncomingServicePacket<TServiceMap extends ServiceMap> =
 	{ [TService in keyof TServiceMap]:
 		{ [TMethod in keyof TServiceMap[TService]]:
-			ServiceRequestPacket<TServiceMap, TService, TMethod>
+			IncomingServiceRequestPacket<TServiceMap, TService, TMethod>
 		}[keyof TServiceMap[TService]]
 	}[keyof TServiceMap];
 
-export interface ServiceRequestPacket<
+export interface IncomingServiceRequestPacket<
 	TServiceMap extends ServiceMap,
 	TService extends keyof TServiceMap,
 	TMethod extends keyof TServiceMap[TService]
@@ -38,10 +39,32 @@ export interface ServiceRequestPacket<
 	service: TService
 }
 
-export function isRequestPacket<
-	TIncoming extends MethodMap,
-	TService extends ServiceMap
->(packet: unknown): packet is AnyPacket<TIncoming, TService> {
+export type MethodPacket = MethodRequestPacket;
+
+// Typed packet variants for use in subclass typed event APIs.
+// These are structurally assignable to AnyPacket so existing
+// runtime/transport code that operates on AnyPacket continues to work.
+
+export interface MethodRequestPacket extends RequestPacket {
+	ackTimeoutMs?: boolean | number,
+	data?: unknown,
+	method: string
+}
+
+interface RequestPacket {
+	cid?: number
+}
+
+export type ServicePacket = ServiceRequestPacket;
+
+export interface ServiceRequestPacket extends RequestPacket {
+	ackTimeoutMs?: boolean | number,
+	data?: unknown,
+	method: string,
+	service: string
+}
+
+export function isRequestPacket(packet: unknown): packet is AnyPacket {
 	return (
 		packet !== null
 		&& typeof packet === 'object'

@@ -1,7 +1,14 @@
 import { SignedAuthToken } from '@socket-mesh/auth';
 import { ChannelMap } from '@socket-mesh/channels';
-import { FunctionReturnType, InvokeMethodOptions, InvokeServiceOptions, MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap, ServiceMethodName, ServiceName, Socket, toError, wait } from '@socket-mesh/core';
+import {
+	AuthenticateEvent, AuthStateChangeEvent, BadAuthTokenEvent, CloseEvent, ConnectEvent,
+	ConnectingEvent, DeauthenticateEvent, DisconnectEvent, ErrorEvent, FunctionReturnType,
+	InvokeMethodOptions, InvokeServiceOptions, MessageEvent, MethodMap, PingEvent, PongEvent,
+	PrivateMethodMap, PublicMethodMap, RemoveAuthTokenEvent, RequestEvent, ResponseEvent,
+	ServiceMap, ServiceMethodName, ServiceName, Socket, SocketEvent, toError, wait
+} from '@socket-mesh/core';
 import { hydrateError } from '@socket-mesh/errors';
+import { DemuxedConsumableStream, StreamEvent } from '@socket-mesh/stream-demux';
 
 import { ClientChannels } from './client-channels.js';
 import { AutoReconnectOptions, ClientSocketOptions, ConnectOptions, parseClientOptions } from './client-socket-options.js';
@@ -125,6 +132,29 @@ export class ClientSocket<
 		return await super.deauthenticate();
 	}
 
+	override emit(event: 'request', data: RequestEvent<TIncoming & ClientPrivateMap, TService>): void;
+	override emit(event: 'response', data: ResponseEvent<TOutgoing, TPrivateOutgoing & ServerPrivateMap, TService>): void;
+	override emit(event: 'authStateChange', data: AuthStateChangeEvent): void;
+	override emit(event: 'authenticate', data: AuthenticateEvent): void;
+	override emit(event: 'badAuthToken', data: BadAuthTokenEvent): void;
+	override emit(event: 'close', data: CloseEvent): void;
+	override emit(event: 'connect', data: ConnectEvent): void;
+	override emit(event: 'connectAbort', data: DisconnectEvent): void;
+	override emit(event: 'connecting', data: ConnectingEvent): void;
+	override emit(event: 'deauthenticate', data: DeauthenticateEvent): void;
+	override emit(event: 'disconnect', data: DisconnectEvent): void;
+	override emit(event: 'end'): void;
+	override emit(event: 'error', data: ErrorEvent): void;
+	override emit(event: 'message', data: MessageEvent): void;
+	override emit(event: 'ping', data: PingEvent): void;
+	override emit(event: 'pong', data: PongEvent): void;
+	override emit(event: 'removeAuthToken', data: RemoveAuthTokenEvent): void;
+	override emit(event: 'request', data: RequestEvent): void;
+	override emit(event: 'response', data: ResponseEvent): void;
+	override emit(event: string, data?: SocketEvent): void {
+		(super.emit as (event: string, data?: SocketEvent) => void)(event, data);
+	}
+
 	override invoke<TMethod extends keyof TOutgoing & string>(method: TMethod, arg?: Parameters<TOutgoing[TMethod]>[0]): Promise<FunctionReturnType<TOutgoing[TMethod]>>;
 	override invoke<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(options: [TServiceName, TMethod, (false | number)?], arg?: Parameters<TService[TServiceName][TMethod]>[0]): Promise<FunctionReturnType<TService[TServiceName][TMethod]>>;
 	override invoke<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(options: InvokeServiceOptions<TService, TServiceName, TMethod>, arg?: Parameters<TService[TServiceName][TMethod]>[0]): Promise<FunctionReturnType<TService[TServiceName][TMethod]>>;
@@ -142,6 +172,29 @@ export class ClientSocket<
 
 	public set isPingTimeoutDisabled(isDisabled: boolean) {
 		this._clientTransport.isPingTimeoutDisabled = isDisabled;
+	}
+
+	override listen(): DemuxedConsumableStream<StreamEvent<SocketEvent<TIncoming & ClientPrivateMap, TOutgoing, TPrivateOutgoing & ServerPrivateMap, TService>>>;
+	override listen(event: 'authStateChange'): DemuxedConsumableStream<AuthStateChangeEvent>;
+	override listen(event: 'authenticate'): DemuxedConsumableStream<AuthenticateEvent>;
+	override listen(event: 'badAuthToken'): DemuxedConsumableStream<BadAuthTokenEvent>;
+	override listen(event: 'close'): DemuxedConsumableStream<CloseEvent>;
+	override listen(event: 'connect'): DemuxedConsumableStream<ConnectEvent>;
+	override listen(event: 'connectAbort'): DemuxedConsumableStream<DisconnectEvent>;
+	override listen(event: 'connecting'): DemuxedConsumableStream<ConnectingEvent>;
+	override listen(event: 'deauthenticate'): DemuxedConsumableStream<DeauthenticateEvent>;
+	override listen(event: 'disconnect'): DemuxedConsumableStream<DisconnectEvent>;
+	override listen(event: 'end'): DemuxedConsumableStream<void>;
+	override listen(event: 'error'): DemuxedConsumableStream<ErrorEvent>;
+	override listen(event: 'message'): DemuxedConsumableStream<MessageEvent>;
+	override listen(event: 'ping'): DemuxedConsumableStream<PingEvent>;
+	override listen(event: 'pong'): DemuxedConsumableStream<PongEvent>;
+	override listen(event: 'removeAuthToken'): DemuxedConsumableStream<RemoveAuthTokenEvent>;
+	override listen(event: 'request'): DemuxedConsumableStream<RequestEvent<TIncoming & ClientPrivateMap, TService>>;
+	override listen(event: 'response'): DemuxedConsumableStream<ResponseEvent<TOutgoing, TPrivateOutgoing & ServerPrivateMap, TService>>;
+	override listen<U extends SocketEvent<TIncoming & ClientPrivateMap, TOutgoing, TPrivateOutgoing & ServerPrivateMap, TService>, V = U>(event: string): DemuxedConsumableStream<V>;
+	override listen<U extends SocketEvent<TIncoming & ClientPrivateMap, TOutgoing, TPrivateOutgoing & ServerPrivateMap, TService>, V = U>(event?: string): DemuxedConsumableStream<V> {
+		return super.listen<U, V>(event ?? '');
 	}
 
 	public get pingTimeoutMs(): number {
