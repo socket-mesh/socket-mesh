@@ -4,7 +4,7 @@ import { CodecEngine } from '@socket-mesh/formatter';
 import { DemuxedConsumableStream, StreamEvent } from '@socket-mesh/stream-demux';
 
 import { HandlerMap } from './maps/handler-map.js';
-import { FunctionReturnType, MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap, ServiceName } from './maps/method-map.js';
+import { FunctionReturnType, MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap, ServiceMethodName, ServiceName } from './maps/method-map.js';
 import { Plugin } from './plugins/plugin.js';
 import { AuthenticateEvent, AuthStateChangeEvent, BadAuthTokenEvent, CloseEvent, ConnectEvent, ConnectingEvent, DeauthenticateEvent, DisconnectEvent, ErrorEvent, MessageEvent, PingEvent, PongEvent, RemoveAuthTokenEvent, RequestEvent, ResponseEvent, SocketEvent } from './socket-event.js';
 import { CallIdGenerator, InvokeMethodOptions, InvokeServiceOptions, SocketTransport } from './socket-transport.js';
@@ -116,13 +116,13 @@ export class Socket<
 
 	public invoke<TMethod extends keyof TOutgoing>(
 		method: TMethod, arg?: Parameters<TOutgoing[TMethod]>[0]): Promise<FunctionReturnType<TOutgoing[TMethod]>>;
-	public invoke<TServiceName extends ServiceName<TService>, TMethod extends keyof TService[TServiceName]>(
+	public invoke<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(
 		options: [TServiceName, TMethod, (false | number)?], arg?: Parameters<TService[TServiceName][TMethod]>[0]): Promise<FunctionReturnType<TService[TServiceName][TMethod]>>;
-	public invoke<TServiceName extends ServiceName<TService>, TMethod extends keyof TService[TServiceName]>(
+	public invoke<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(
 		options: InvokeServiceOptions<TService, TServiceName, TMethod>, arg?: Parameters<TService[TServiceName][TMethod]>[0]): Promise<FunctionReturnType<TService[TServiceName][TMethod]>>;
 	public invoke<TMethod extends keyof TOutgoing>(
 		options: InvokeMethodOptions<TOutgoing, TMethod>, arg?: Parameters<TOutgoing[TMethod]>[0]): Promise<FunctionReturnType<TOutgoing[TMethod]>>;
-	public invoke<TServiceName extends ServiceName<TService>, TServiceMethod extends keyof TService[TServiceName], TMethod extends keyof TOutgoing>(
+	public invoke<TServiceName extends ServiceName<TService>, TServiceMethod extends ServiceMethodName<TService, TServiceName>, TMethod extends keyof TOutgoing>(
 		methodOptions: [TServiceName, TServiceMethod, (false | number)?] | InvokeMethodOptions<TOutgoing, TMethod> | InvokeServiceOptions<TService, TServiceName, TServiceMethod> | TMethod,
 		arg?: Parameters<TOutgoing[TMethod] | TService[TServiceName][TServiceMethod]>[0]): Promise<FunctionReturnType<TOutgoing[TMethod] | TService[TServiceName][TServiceMethod]>> {
 		return this._transport.invoke(methodOptions as TMethod, arg)[0];
@@ -161,9 +161,9 @@ export class Socket<
 
 	public transmit<TMethod extends keyof TOutgoing>(
 		method: TMethod, arg?: Parameters<TOutgoing[TMethod]>[0]): Promise<void>;
-	public transmit<TServiceName extends ServiceName<TService>, TMethod extends keyof TService[TServiceName]>(
+	public transmit<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(
 		options: [TServiceName, TMethod], arg?: Parameters<TService[TServiceName][TMethod]>[0]): Promise<void>;
-	public transmit<TServiceName extends ServiceName<TService>, TServiceMethod extends keyof TService[TServiceName], TMethod extends keyof TOutgoing>(
+	public transmit<TServiceName extends ServiceName<TService>, TServiceMethod extends ServiceMethodName<TService, TServiceName>, TMethod extends keyof TOutgoing>(
 		serviceAndMethod: [TServiceName, TServiceMethod] | TMethod,
 		arg?: (Parameters<TOutgoing[TMethod] | TService[TServiceName][TServiceMethod]>)[0]): Promise<void> {
 		return this._transport.transmit(serviceAndMethod as TMethod, arg);
