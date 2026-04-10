@@ -1,6 +1,6 @@
 import { SignedAuthToken } from '@socket-mesh/auth';
 import { ChannelMap } from '@socket-mesh/channels';
-import { MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap, Socket, toError, wait } from '@socket-mesh/core';
+import { FunctionReturnType, InvokeMethodOptions, InvokeServiceOptions, MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap, ServiceMethodName, ServiceName, Socket, toError, wait } from '@socket-mesh/core';
 import { hydrateError } from '@socket-mesh/errors';
 
 import { ClientChannels } from './client-channels.js';
@@ -125,6 +125,17 @@ export class ClientSocket<
 		return await super.deauthenticate();
 	}
 
+	override invoke<TMethod extends keyof TOutgoing & string>(method: TMethod, arg?: Parameters<TOutgoing[TMethod]>[0]): Promise<FunctionReturnType<TOutgoing[TMethod]>>;
+	override invoke<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(options: [TServiceName, TMethod, (false | number)?], arg?: Parameters<TService[TServiceName][TMethod]>[0]): Promise<FunctionReturnType<TService[TServiceName][TMethod]>>;
+	override invoke<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(options: InvokeServiceOptions<TService, TServiceName, TMethod>, arg?: Parameters<TService[TServiceName][TMethod]>[0]): Promise<FunctionReturnType<TService[TServiceName][TMethod]>>;
+	override invoke<TMethod extends keyof TOutgoing & string>(options: InvokeMethodOptions<TOutgoing, TMethod>, arg?: Parameters<TOutgoing[TMethod]>[0]): Promise<FunctionReturnType<TOutgoing[TMethod]>>;
+	override invoke(
+		methodOptions: [string, string, (false | number)?] | InvokeMethodOptions | InvokeServiceOptions | string,
+		arg?: unknown
+	): Promise<unknown> {
+		return super.invoke(methodOptions, arg);
+	}
+
 	public get isPingTimeoutDisabled(): boolean {
 		return this._clientTransport.isPingTimeoutDisabled;
 	}
@@ -144,6 +155,15 @@ export class ClientSocket<
 	public reconnect(code?: number, reason?: string) {
 		this.disconnect(code, reason);
 		this.connect();
+	}
+
+	override transmit<TMethod extends keyof TOutgoing & string>(method: TMethod, arg?: Parameters<TOutgoing[TMethod]>[0]): Promise<void>;
+	override transmit<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(options: [TServiceName, TMethod], arg?: Parameters<TService[TServiceName][TMethod]>[0]): Promise<void>;
+	override transmit(
+		serviceAndMethod: [string, string] | string,
+		arg?: unknown
+	): Promise<void> {
+		return super.transmit(serviceAndMethod, arg);
 	}
 
 	get type(): 'client' {

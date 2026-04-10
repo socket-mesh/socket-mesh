@@ -1,6 +1,6 @@
 import { ChannelMap } from '@socket-mesh/channels';
 import { ClientPrivateMap, ServerPrivateMap } from '@socket-mesh/client';
-import { HandlerMap, PrivateMethodMap, PublicMethodMap, ServiceMap, Socket, SocketOptions, toError } from '@socket-mesh/core';
+import { FunctionReturnType, HandlerMap, InvokeMethodOptions, InvokeServiceOptions, PrivateMethodMap, PublicMethodMap, ServiceMap, ServiceMethodName, ServiceName, Socket, SocketOptions, toError } from '@socket-mesh/core';
 import { IncomingMessage } from 'http';
 import { WebSocket } from 'ws';
 
@@ -103,6 +103,19 @@ export class ServerSocket<
 		return this._serverTransport.id;
 	}
 
+	override invoke<TMethod extends keyof TOutgoing & string>(method: TMethod, arg?: Parameters<TOutgoing[TMethod]>[0]): Promise<FunctionReturnType<TOutgoing[TMethod]>>;
+	override invoke<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(options: [TServiceName, TMethod, (false | number)?], arg?: Parameters<TService[TServiceName][TMethod]>[0]): Promise<FunctionReturnType<TService[TServiceName][TMethod]>>;
+	override invoke<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(options: InvokeServiceOptions<TService, TServiceName, TMethod>, arg?: Parameters<TService[TServiceName][TMethod]>[0]): Promise<FunctionReturnType<TService[TServiceName][TMethod]>>;
+	override invoke<TMethod extends keyof TOutgoing & string>(options: InvokeMethodOptions<TOutgoing, TMethod>, arg?: Parameters<TOutgoing[TMethod]>[0]): Promise<FunctionReturnType<TOutgoing[TMethod]>>;
+	override invoke<TMethod extends keyof (TPrivateOutgoing & ClientPrivateMap) & string>(method: TMethod, arg: Parameters<(TPrivateOutgoing & ClientPrivateMap)[TMethod]>[0]): Promise<FunctionReturnType<(TPrivateOutgoing & ClientPrivateMap)[TMethod]>>;
+	override invoke<TMethod extends keyof (TPrivateOutgoing & ClientPrivateMap) & string>(options: InvokeMethodOptions<(TPrivateOutgoing & ClientPrivateMap), TMethod>, arg?: Parameters<(TPrivateOutgoing & ClientPrivateMap)[TMethod]>[0]): Promise<FunctionReturnType<(TPrivateOutgoing & ClientPrivateMap)[TMethod]>>;
+	override invoke(
+		methodOptions: [string, string, (false | number)?] | InvokeMethodOptions | InvokeServiceOptions | string,
+		arg?: unknown
+	): Promise<unknown> {
+		return super.invoke(methodOptions, arg);
+	}
+
 	kickOut(channel: string, message: string): Promise<void[]> {
 		const channels = channel ? [channel] : Object.keys(this.state.channelSubscriptions || {});
 
@@ -118,6 +131,16 @@ export class ServerSocket<
 
 	get service(): string | undefined {
 		return this._serverTransport.service;
+	}
+
+	override transmit<TMethod extends keyof TOutgoing & string>(method: TMethod, arg?: Parameters<TOutgoing[TMethod]>[0]): Promise<void>;
+	override transmit<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(options: [TServiceName, TMethod], arg?: Parameters<TService[TServiceName][TMethod]>[0]): Promise<void>;
+	override transmit<TMethod extends keyof (TPrivateOutgoing & ClientPrivateMap) & string>(method: TMethod, arg?: Parameters<(TPrivateOutgoing & ClientPrivateMap)[TMethod]>[0]): Promise<void>;
+	override transmit(
+		serviceAndMethod: [string, string] | string,
+		arg?: unknown
+	): Promise<void> {
+		return super.transmit(serviceAndMethod, arg);
 	}
 
 	get type(): 'server' {
