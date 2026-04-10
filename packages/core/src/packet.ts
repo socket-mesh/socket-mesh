@@ -64,6 +64,11 @@ export interface ServiceRequestPacket extends RequestPacket {
 	service: string
 }
 
+export function isRequestPacket(packet: unknown): packet is AnyPacket;
+export function isRequestPacket<
+	TIncoming extends MethodMap,
+	TService extends ServiceMap = {}
+>(packet: unknown): packet is IncomingPacket<TIncoming, TService>;
 export function isRequestPacket(packet: unknown): packet is AnyPacket {
 	return (
 		packet !== null

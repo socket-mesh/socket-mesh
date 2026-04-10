@@ -2499,7 +2499,7 @@ describe('Server Tests', function () {
 							// Each subscription should pass through the plugin individually, even
 							// though they were sent as a batch/array.
 							async onMessage({ packet }) {
-								if (isRequestPacket(packet) && packet.method === '#subscribe') {
+								if (isRequestPacket<ServerPrivateMap>(packet) && packet.method === '#subscribe') {
 									subscribePluginCounter++;
 									assert.strictEqual(packet.data.channel.indexOf('my-channel-'), 0);
 									if (packet.data.channel === 'my-channel-10') {
