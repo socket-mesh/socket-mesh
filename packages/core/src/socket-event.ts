@@ -71,30 +71,51 @@ export interface RemoveAuthTokenEvent {
 	oldAuthToken: SignedAuthToken
 }
 
-export interface RequestEvent<
-	TIncoming extends MethodMap = never,
-	TService extends ServiceMap = never
-> {
-	request: [TIncoming] extends [never]
-		? AnyPacket
-		: IncomingPacket<TIncoming, TService>
+export interface RequestEvent {
+	request: AnyPacket
 }
 
-export interface ResponseEvent<
-	TOutgoing extends PublicMethodMap = never,
-	TPrivateOutgoing extends PrivateMethodMap = never,
-	TService extends ServiceMap = never
-> {
-	response: [TOutgoing] extends [never]
-		? AnyResponse
-		: OutgoingResponse<TOutgoing, TPrivateOutgoing, TService>
+export interface ResponseEvent {
+	response: AnyResponse
 }
 
-export type SocketEvent<
-	TIncoming extends MethodMap = never,
-	TOutgoing extends PublicMethodMap = never,
-	TPrivateOutgoing extends PrivateMethodMap = never,
-	TService extends ServiceMap = never
+export type SocketEvent =
+	AuthenticateEvent
+	| AuthStateChangeEvent
+	| BadAuthTokenEvent
+	| CloseEvent
+	| ConnectEvent
+	| ConnectingEvent
+	| DeauthenticateEvent
+	| DisconnectEvent
+	| ErrorEvent
+	| MessageEvent
+	| PingEvent
+	| PongEvent
+	| RemoveAuthTokenEvent
+	| RequestEvent
+	| ResponseEvent;
+
+export interface TypedRequestEvent<
+	TIncoming extends MethodMap,
+	TService extends ServiceMap = {}
+> {
+	request: IncomingPacket<TIncoming, TService>
+}
+
+export interface TypedResponseEvent<
+	TOutgoing extends PublicMethodMap,
+	TPrivateOutgoing extends PrivateMethodMap = {},
+	TService extends ServiceMap = {}
+> {
+	response: OutgoingResponse<TOutgoing, TPrivateOutgoing, TService>
+}
+
+export type TypedSocketEvent<
+	TIncoming extends MethodMap,
+	TOutgoing extends PublicMethodMap,
+	TPrivateOutgoing extends PrivateMethodMap = {},
+	TService extends ServiceMap = {}
 > =
 	AuthenticateEvent
 	| AuthStateChangeEvent
@@ -109,5 +130,5 @@ export type SocketEvent<
 	| PingEvent
 	| PongEvent
 	| RemoveAuthTokenEvent
-	| RequestEvent<TIncoming, TService>
-	| ResponseEvent<TOutgoing, TPrivateOutgoing, TService>;
+	| TypedRequestEvent<TIncoming, TService>
+	| TypedResponseEvent<TOutgoing, TPrivateOutgoing, TService>;

@@ -3,10 +3,10 @@ import { ClientPrivateMap, ClientSocket, ServerPrivateMap } from '@socket-mesh/c
 import {
 	AuthenticateEvent, AuthStateChangeEvent, BadAuthTokenEvent, ConnectEvent, ConnectingEvent, DeauthenticateEvent,
 	DisconnectEvent, MessageEvent, PingEvent, PongEvent, PrivateMethodMap, PublicMethodMap,
-	RemoveAuthTokenEvent, RequestEvent, ResponseEvent,
+	RemoveAuthTokenEvent,
 	CloseEvent as SCloseEvent,
 	ErrorEvent as SErrorEvent,
-	ServiceMap
+	ServiceMap, TypedRequestEvent, TypedResponseEvent
 } from '@socket-mesh/core';
 import { IncomingMessage } from 'http';
 
@@ -247,7 +247,7 @@ export type SocketRequestEvent<
 	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
 	TPrivateIncoming extends PrivateMethodMap
-> = RequestEvent<TIncoming & TPrivateIncoming & ServerPrivateMap, TService>;
+> = TypedRequestEvent<TIncoming & TPrivateIncoming & ServerPrivateMap, TService>;
 
 export type SocketResponseEvent<
 	TChannel extends ChannelMap,
@@ -258,7 +258,7 @@ export type SocketResponseEvent<
 	TPrivateOutgoing extends PrivateMethodMap,
 	TServerState extends object,
 	TState extends object
-> = ResponseEvent<TOutgoing, TPrivateOutgoing & ClientPrivateMap, TService>
+> = TypedResponseEvent<TOutgoing, TPrivateOutgoing & ClientPrivateMap, TService>
 	& ServerSocketEvent<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
 
 export type SocketSubscribeEvent<

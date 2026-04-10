@@ -5,7 +5,8 @@ import {
 	ConnectingEvent, DeauthenticateEvent, DisconnectEvent, ErrorEvent, FunctionReturnType,
 	HandlerMap, InvokeMethodOptions, InvokeServiceOptions, MessageEvent, PingEvent, PongEvent,
 	PrivateMethodMap, PublicMethodMap, RemoveAuthTokenEvent, RequestEvent, ResponseEvent,
-	ServiceMap, ServiceMethodName, ServiceName, Socket, SocketEvent, SocketOptions, toError
+	ServiceMap, ServiceMethodName, ServiceName, Socket, SocketEvent, SocketOptions, toError,
+	TypedRequestEvent, TypedResponseEvent, TypedSocketEvent
 } from '@socket-mesh/core';
 import { DemuxedConsumableStream, StreamEvent } from '@socket-mesh/stream-demux';
 import { IncomingMessage } from 'http';
@@ -102,8 +103,8 @@ export class ServerSocket<
 		return result;
 	}
 
-	override emit(event: 'request', data: RequestEvent<TIncoming & TPrivateIncoming & ServerPrivateMap, TService>): void;
-	override emit(event: 'response', data: ResponseEvent<TOutgoing, TPrivateOutgoing & ClientPrivateMap, TService>): void;
+	override emit(event: 'request', data: TypedRequestEvent<TIncoming & TPrivateIncoming & ServerPrivateMap, TService>): void;
+	override emit(event: 'response', data: TypedResponseEvent<TOutgoing, TPrivateOutgoing & ClientPrivateMap, TService>): void;
 	override emit(event: 'authStateChange', data: AuthStateChangeEvent): void;
 	override emit(event: 'authenticate', data: AuthenticateEvent): void;
 	override emit(event: 'badAuthToken', data: BadAuthTokenEvent): void;
@@ -155,7 +156,7 @@ export class ServerSocket<
 		}));
 	}
 
-	override listen(): DemuxedConsumableStream<StreamEvent<SocketEvent<TIncoming & TPrivateIncoming & ServerPrivateMap, TOutgoing, TPrivateOutgoing & ClientPrivateMap, TService>>>;
+	override listen(): DemuxedConsumableStream<StreamEvent<TypedSocketEvent<TIncoming & TPrivateIncoming & ServerPrivateMap, TOutgoing, TPrivateOutgoing & ClientPrivateMap, TService>>>;
 	override listen(event: 'authStateChange'): DemuxedConsumableStream<AuthStateChangeEvent>;
 	override listen(event: 'authenticate'): DemuxedConsumableStream<AuthenticateEvent>;
 	override listen(event: 'badAuthToken'): DemuxedConsumableStream<BadAuthTokenEvent>;
@@ -171,10 +172,10 @@ export class ServerSocket<
 	override listen(event: 'ping'): DemuxedConsumableStream<PingEvent>;
 	override listen(event: 'pong'): DemuxedConsumableStream<PongEvent>;
 	override listen(event: 'removeAuthToken'): DemuxedConsumableStream<RemoveAuthTokenEvent>;
-	override listen(event: 'request'): DemuxedConsumableStream<RequestEvent<TIncoming & TPrivateIncoming & ServerPrivateMap, TService>>;
-	override listen(event: 'response'): DemuxedConsumableStream<ResponseEvent<TOutgoing, TPrivateOutgoing & ClientPrivateMap, TService>>;
-	override listen<U extends SocketEvent<TIncoming & TPrivateIncoming & ServerPrivateMap, TOutgoing, TPrivateOutgoing & ClientPrivateMap, TService>, V = U>(event: string): DemuxedConsumableStream<V>;
-	override listen<U extends SocketEvent<TIncoming & TPrivateIncoming & ServerPrivateMap, TOutgoing, TPrivateOutgoing & ClientPrivateMap, TService>, V = U>(event?: string): DemuxedConsumableStream<V> {
+	override listen(event: 'request'): DemuxedConsumableStream<TypedRequestEvent<TIncoming & TPrivateIncoming & ServerPrivateMap, TService>>;
+	override listen(event: 'response'): DemuxedConsumableStream<TypedResponseEvent<TOutgoing, TPrivateOutgoing & ClientPrivateMap, TService>>;
+	override listen<U extends TypedSocketEvent<TIncoming & TPrivateIncoming & ServerPrivateMap, TOutgoing, TPrivateOutgoing & ClientPrivateMap, TService>, V = U>(event: string): DemuxedConsumableStream<V>;
+	override listen<U extends TypedSocketEvent<TIncoming & TPrivateIncoming & ServerPrivateMap, TOutgoing, TPrivateOutgoing & ClientPrivateMap, TService>, V = U>(event?: string): DemuxedConsumableStream<V> {
 		return super.listen<U, V>(event ?? '');
 	}
 
