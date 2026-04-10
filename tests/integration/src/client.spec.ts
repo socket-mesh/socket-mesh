@@ -1,5 +1,5 @@
 import { ClientSocket, ClientSocketOptions, LocalStorageAuthEngine, OfflinePlugin } from '@socket-mesh/client';
-import { AuthStateChangeEvent, CloseEvent, DisconnectEvent, RequestHandlerArgs, SocketStatus, wait } from '@socket-mesh/core';
+import { AuthStateChangeEvent, CloseEvent, DisconnectEvent, RequestHandlerArgs, SocketStatus, toError, wait } from '@socket-mesh/core';
 import localStorage from '@socket-mesh/local-storage';
 import { listen, Server, ServerRequestHandlerArgs } from '@socket-mesh/server';
 import jwt from 'jsonwebtoken';
@@ -9,14 +9,14 @@ import { afterEach, beforeEach, describe, it, mock } from 'node:test';
 // Add to the global scope like in browser.
 global.localStorage = localStorage;
 
-const portNumber = 8009;
-const tokenExpiryInSeconds = 60 * 60 * 24 * 366 * 5000;
-const authTokenName = 'socketmesh.authToken';
+const PORT_NUMBER = 8009;
+const TOKEN_EXPIRY_IN_SECONDS = 60 * 60 * 24 * 366 * 5000;
+const AUTH_TOKEN_NAME = 'socketmesh.authToken';
 
-const validSignedAuthTokenBob = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImJvYiIsImV4cCI6MzE2Mzc1ODk3ODIxNTQ4NywiaWF0IjoxNTAyNzQ3NzQ2fQ.GLf_jqi_qUSCRahxe2D2I9kD8iVIs0d4xTbiZMRiQq4';
-const validSignedAuthTokenKate = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImthdGUiLCJleHAiOjMxNjM3NTg5NzgyMTU0ODcsImlhdCI6MTUwMjc0Nzc5NX0.Yfb63XvDt9Wk0wHSDJ3t7Qb1F0oUVUaM5_JKxIE2kyw';
-const invalidSignedAuthToken = 'fakebGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.fakec2VybmFtZSI6ImJvYiIsImlhdCI6MTUwMjYyNTIxMywiZXhwIjoxNTAyNzExNjEzfQ.fakemYcOOjM9bzmS4UYRvlWSk_lm3WGHvclmFjLbyOk';
-const serverAuthKey = 'testkey';
+const VALID_SIGNED_AUTH_TOKEN_BOB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImJvYiIsImV4cCI6MzE2Mzc1ODk3ODIxNTQ4NywiaWF0IjoxNTAyNzQ3NzQ2fQ.GLf_jqi_qUSCRahxe2D2I9kD8iVIs0d4xTbiZMRiQq4';
+const VALID_SIGNED_AUTH_TOKEN_KATE = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImthdGUiLCJleHAiOjMxNjM3NTg5NzgyMTU0ODcsImlhdCI6MTUwMjc0Nzc5NX0.Yfb63XvDt9Wk0wHSDJ3t7Qb1F0oUVUaM5_JKxIE2kyw';
+const INVALID_SIGNED_AUTH_TOKEN = 'fakebGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.fakec2VybmFtZSI6ImJvYiIsImlhdCI6MTUwMjYyNTIxMywiZXhwIjoxNTAyNzExNjEzfQ.fakemYcOOjM9bzmS4UYRvlWSk_lm3WGHvclmFjLbyOk';
+const SERVER_AUTH_KEY = 'testkey';
 
 interface LoginRequest {
 	username: string
@@ -56,7 +56,7 @@ async function loginHandler({ options, transport }: ServerRequestHandlerArgs<Log
 	}
 
 	const authToken = {
-		exp: Math.round(Date.now() / 1000) + tokenExpiryInSeconds,
+		exp: Math.round(Date.now() / 1000) + TOKEN_EXPIRY_IN_SECONDS,
 		username: options.username
 	};
 
@@ -74,17 +74,17 @@ async function setAuthKeyHandler({ options: secret, socket }: ServerRequestHandl
 
 const clientOptions: ClientSocketOptions<ServerIncomingMap> = {
 	ackTimeoutMs: 200,
-	address: `ws://127.0.0.1:${portNumber}`,
-	authEngine: { authTokenName }
+	address: `ws://127.0.0.1:${PORT_NUMBER}`,
+	authEngine: { authTokenName: AUTH_TOKEN_NAME }
 };
 
 describe('Client Tests', function () {
 	beforeEach(async function () {
 		server = listen<ServerIncomingMap, MyChannels>(
-			portNumber,
+			PORT_NUMBER,
 			{
 				ackTimeoutMs: 200,
-				authEngine: { authKey: serverAuthKey },
+				authEngine: { authKey: SERVER_AUTH_KEY },
 				handlers: {
 					login: loginHandler,
 					performTask: performTaskHandler,
@@ -100,7 +100,7 @@ describe('Client Tests', function () {
 	afterEach(async function () {
 		const cleanupTasks: Promise<DisconnectEvent | void>[] = [];
 
-		global.localStorage.removeItem(authTokenName);
+		global.localStorage.removeItem(AUTH_TOKEN_NAME);
 
 		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 		if (client) {
@@ -178,18 +178,18 @@ describe('Client Tests', function () {
 		});
 
 		it('Should be authenticated on connect if previous JWT token is present', async function () {
-			global.localStorage.setItem(authTokenName, validSignedAuthTokenBob);
+			global.localStorage.setItem(AUTH_TOKEN_NAME, VALID_SIGNED_AUTH_TOKEN_BOB);
 			client = new ClientSocket(clientOptions);
 
 			const event = await client.listen('connect').once(100);
 
-			assert.strictEqual(client.signedAuthToken, validSignedAuthTokenBob);
+			assert.strictEqual(client.signedAuthToken, VALID_SIGNED_AUTH_TOKEN_BOB);
 			assert.strictEqual(client.authToken?.username, 'bob');
 			assert.strictEqual(event.authError, undefined);
 		});
 
 		it('Should send back error if JWT is invalid during handshake', async function () {
-			global.localStorage.setItem(authTokenName, validSignedAuthTokenBob);
+			global.localStorage.setItem(AUTH_TOKEN_NAME, VALID_SIGNED_AUTH_TOKEN_BOB);
 			client = new ClientSocket(clientOptions);
 
 			let event = await client.listen('connect').once(100);
@@ -219,18 +219,18 @@ describe('Client Tests', function () {
 			assert.strictEqual(client.authToken, null);
 
 			// Set authKey back to what it was.
-			await client.invoke('setAuthKey', serverAuthKey);
+			await client.invoke('setAuthKey', SERVER_AUTH_KEY);
 		});
 
 		it('Should allow switching between users', async function () {
-			global.localStorage.setItem(authTokenName, validSignedAuthTokenBob);
+			global.localStorage.setItem(AUTH_TOKEN_NAME, VALID_SIGNED_AUTH_TOKEN_BOB);
 			client = new ClientSocket(clientOptions);
 			let wasAuthenticateTriggered = false;
 			let wasAuthStateChangeTriggered = false;
 
 			await client.listen('connect').once(100);
 
-			assert.strictEqual(client.signedAuthToken, validSignedAuthTokenBob);
+			assert.strictEqual(client.signedAuthToken, VALID_SIGNED_AUTH_TOKEN_BOB);
 			assert.strictEqual(client.authToken?.username, 'bob');
 
 			(async () => {
@@ -329,7 +329,7 @@ describe('Client Tests', function () {
 		});
 
 		it('Should deal with auth engine errors related to saveToken function', async function () {
-			global.localStorage.setItem(authTokenName, validSignedAuthTokenBob);
+			global.localStorage.setItem(AUTH_TOKEN_NAME, VALID_SIGNED_AUTH_TOKEN_BOB);
 
 			const authEngine = new LocalStorageAuthEngine();
 
@@ -360,7 +360,7 @@ describe('Client Tests', function () {
 			assert.notEqual(client.authToken, null);
 			assert.strictEqual(client.authToken?.username, 'bob');
 
-			await client.authenticate(validSignedAuthTokenKate);
+			await client.authenticate(VALID_SIGNED_AUTH_TOKEN_KATE);
 
 			// The error here comes from the client auth engine and does not prevent the
 			// authentication from taking place, it only prevents the token from being
@@ -375,14 +375,14 @@ describe('Client Tests', function () {
 			client = new ClientSocket(clientOptions);
 			await client.listen('connect').once();
 
-			const authenticatePromise = client.authenticate(validSignedAuthTokenBob);
+			const authenticatePromise = client.authenticate(VALID_SIGNED_AUTH_TOKEN_BOB);
 			client.disconnect();
 
 			try {
 				await authenticatePromise;
 			} catch (err) {
 				assert.notEqual(err, null);
-				assert.strictEqual(err.name, 'BadConnectionError');
+				assert.strictEqual(toError(err).name, 'BadConnectionError');
 				assert.equal(client.signedAuthToken, null);
 			}
 		});
@@ -437,7 +437,7 @@ describe('Client Tests', function () {
 		});
 
 		it('Should go through the correct sequence of authentication state changes when dealing with disconnections; part 2', async function () {
-			global.localStorage.setItem(authTokenName, validSignedAuthTokenBob);
+			global.localStorage.setItem(AUTH_TOKEN_NAME, VALID_SIGNED_AUTH_TOKEN_BOB);
 			client = new ClientSocket(clientOptions);
 
 			const expectedAuthStateChanges = [
@@ -463,7 +463,7 @@ describe('Client Tests', function () {
 			await client.deauthenticate();
 			assert.equal(client.signedAuthToken, null);
 
-			const authenticatePromise = client.authenticate(validSignedAuthTokenBob);
+			const authenticatePromise = client.authenticate(VALID_SIGNED_AUTH_TOKEN_BOB);
 			assert.equal(client.signedAuthToken, null);
 
 			await authenticatePromise;
@@ -480,7 +480,7 @@ describe('Client Tests', function () {
 		});
 
 		it('Should go through the correct sequence of authentication state changes when dealing with disconnections; part 3', async function () {
-			global.localStorage.setItem(authTokenName, validSignedAuthTokenBob);
+			global.localStorage.setItem(AUTH_TOKEN_NAME, VALID_SIGNED_AUTH_TOKEN_BOB);
 			client = new ClientSocket(clientOptions);
 
 			const expectedAuthStateChanges = [
@@ -500,21 +500,21 @@ describe('Client Tests', function () {
 			await client.listen('connect').once();
 
 			assert.notEqual(client.signedAuthToken, null);
-			const authenticatePromise = client.authenticate(invalidSignedAuthToken);
+			const authenticatePromise = client.authenticate(INVALID_SIGNED_AUTH_TOKEN);
 			assert.notEqual(client.signedAuthToken, null);
 
 			try {
 				await authenticatePromise;
 			} catch (err) {
 				assert.notEqual(err, null);
-				assert.strictEqual(err.name, 'AuthTokenInvalidError');
+				assert.strictEqual(toError(err).name, 'AuthTokenInvalidError');
 				assert.equal(client.signedAuthToken, null);
 				assert.strictEqual(JSON.stringify(authStateChanges), JSON.stringify(expectedAuthStateChanges));
 			}
 		});
 
 		it('Should go through the correct sequence of authentication state changes when authenticating as a user while already authenticated as another user', async function () {
-			global.localStorage.setItem(authTokenName, validSignedAuthTokenBob);
+			global.localStorage.setItem(AUTH_TOKEN_NAME, VALID_SIGNED_AUTH_TOKEN_BOB);
 			client = new ClientSocket(clientOptions);
 
 			const expectedAuthStateChanges = [
@@ -529,8 +529,8 @@ describe('Client Tests', function () {
 			})();
 
 			const expectedAuthTokenChanges = [
-				validSignedAuthTokenBob,
-				validSignedAuthTokenKate
+				VALID_SIGNED_AUTH_TOKEN_BOB,
+				VALID_SIGNED_AUTH_TOKEN_KATE
 			];
 			const authTokenChanges: (null | string)[] = [];
 
@@ -552,7 +552,7 @@ describe('Client Tests', function () {
 
 			assert.notEqual(client.signedAuthToken, null);
 			assert.strictEqual(client.authToken?.username, 'bob');
-			const authenticatePromise = client.authenticate(validSignedAuthTokenKate);
+			const authenticatePromise = client.authenticate(VALID_SIGNED_AUTH_TOKEN_KATE);
 
 			assert.notEqual(client.signedAuthToken, null);
 
@@ -587,7 +587,7 @@ describe('Client Tests', function () {
 			client.disconnect();
 			assert.strictEqual(privateChannel.state, 'pending');
 
-			client.authenticate(validSignedAuthTokenBob);
+			client.authenticate(VALID_SIGNED_AUTH_TOKEN_BOB);
 			await client.channels.listen('subscribe').once(100);
 			assert.strictEqual(privateChannel.state, 'subscribed');
 
@@ -595,7 +595,7 @@ describe('Client Tests', function () {
 		});
 
 		it('Subscriptions (including those with waitForAuth option) should have priority over the authenticate action', async function () {
-			global.localStorage.setItem(authTokenName, validSignedAuthTokenBob);
+			global.localStorage.setItem(AUTH_TOKEN_NAME, VALID_SIGNED_AUTH_TOKEN_BOB);
 			client = new ClientSocket({
 				...clientOptions,
 				plugins: [new OfflinePlugin()]
@@ -617,9 +617,9 @@ describe('Client Tests', function () {
 			(async () => {
 				let error: Error | null = null;
 				try {
-					await client.authenticate(invalidSignedAuthToken);
+					await client.authenticate(INVALID_SIGNED_AUTH_TOKEN);
 				} catch (err) {
-					error = err;
+					error = toError(err);
 				}
 				assert.notEqual(error, null);
 				assert.strictEqual(error!.name, 'AuthTokenInvalidError');
@@ -757,13 +757,13 @@ describe('Client Tests', function () {
 				try {
 					await client.invoke('performTask', 1000);
 				} catch (err) {
-					responseError = err;
+					responseError = toError(err);
 				}
 				await wait(250);
 				try {
 					client.disconnect();
 				} catch (err) {
-					caughtError = err;
+					caughtError = toError(err);
 				}
 				break;
 			}
@@ -983,7 +983,7 @@ describe('Client Tests', function () {
 						try {
 							await client.invoke('performTask', 123);
 						} catch (err) {
-							if (err.name === 'BadConnectionError') {
+							if (toError(err).name === 'BadConnectionError') {
 								hasBadConnectionError = true;
 							}
 						}
@@ -1245,7 +1245,7 @@ describe('Client Tests', function () {
 				// Since the authStateChange event will not trigger, this should timeout.
 				event = await client.listen('authStateChange').once(100);
 			} catch (err) {
-				error = err;
+				error = toError(err);
 			}
 
 			assert.strictEqual(event, null);

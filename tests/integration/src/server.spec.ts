@@ -2,7 +2,7 @@ import { AuthToken } from '@socket-mesh/auth';
 import { Channel, ChannelOptions, isPublishOptions, JsonValue, UnsubscribeEvent } from '@socket-mesh/channels';
 import { ClientPrivateMap, ClientSocket, ClientSocketOptions } from '@socket-mesh/client';
 import { InOrderPlugin, OfflinePlugin, RequestBatchingPlugin, ResponseBatchingPlugin, ServerPrivateMap } from '@socket-mesh/client';
-import { AnyPacket, AuthenticatedChangeEvent, AuthStateChangeEvent, CloseEvent, ConnectEvent, DisconnectEvent, isRequestPacket, MethodRequestPacket, PluginArgs, RequestHandlerArgs, SendRequestPluginArgs, wait } from '@socket-mesh/core';
+import { AnyPacket, AuthenticatedChangeEvent, AuthStateChangeEvent, CloseEvent, ConnectEvent, DisconnectEvent, isRequestPacket, MethodRequestPacket, PluginArgs, RequestHandlerArgs, SendRequestPluginArgs, toError, wait } from '@socket-mesh/core';
 import { HandshakeError, PluginBlockedError } from '@socket-mesh/errors';
 import localStorage from '@socket-mesh/local-storage';
 import { listen, Server, ServerOptions, ServerSocket, ServerSocketState } from '@socket-mesh/server';
@@ -18,18 +18,18 @@ import { RawData } from 'ws';
 // Add to the global scope like in browser.
 global.localStorage = localStorage;
 
-const portNumber = 8008;
+const PORT_NUMBER = 8008;
 // const WS_ENGINE = 'ws';
-const shouldLogWarnings = false;
-const shouldLogErrors = false;
+const SHOULD_LOG_WARNINGS = false;
+const SHOULD_LOG_ERRORS = false;
 
-const tenDaysInSeconds = 60 * 60 * 24 * 10;
-const authTokenName = 'socketmesh.authToken';
+const TEN_DAYS_IN_SECONDS = 60 * 60 * 24 * 10;
+const AUTH_TOKEN_NAME = 'socketmesh.authToken';
 
-const validSignedAuthTokenBob = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImJvYiIsImV4cCI6MzE2Mzc1ODk3OTA4MDMxMCwiaWF0IjoxNTAyNzQ3NzQ2fQ.dSZOfsImq4AvCu-Or3Fcmo7JNv1hrV3WqxaiSKkTtAo';
-const validSignedAuthTokenAlice = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFsaWNlIiwiaWF0IjoxNTE4NzI4MjU5LCJleHAiOjMxNjM3NTg5NzkwODAzMTB9.XxbzPPnnXrJfZrS0FJwb_EAhIu2VY5i7rGyUThtNLh4';
-const invalidSignedAuthToken = 'fakebGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.fakec2VybmFtZSI6ImJvYiIsImlhdCI6MTUwMjYyNTIxMywiZXhwIjoxNTAyNzExNjEzfQ.fakemYcOOjM9bzmS4UYRvlWSk_lm3WGHvclmFjLbyOk';
-const serverAuthKey = 'testkey';
+const VALID_SIGNED_AUTH_TOKEN_BOB = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImJvYiIsImV4cCI6MzE2Mzc1ODk3OTA4MDMxMCwiaWF0IjoxNTAyNzQ3NzQ2fQ.dSZOfsImq4AvCu-Or3Fcmo7JNv1hrV3WqxaiSKkTtAo';
+const VALID_SIGNED_AUTH_TOKEN_ALICE = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFsaWNlIiwiaWF0IjoxNTE4NzI4MjU5LCJleHAiOjMxNjM3NTg5NzkwODAzMTB9.XxbzPPnnXrJfZrS0FJwb_EAhIu2VY5i7rGyUThtNLh4';
+const INVALID_SIGNED_AUTH_TOKEN = 'fakebGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.fakec2VybmFtZSI6ImJvYiIsImlhdCI6MTUwMjYyNTIxMywiZXhwIjoxNTAyNzExNjEzfQ.fakemYcOOjM9bzmS4UYRvlWSk_lm3WGHvclmFjLbyOk';
+const SERVER_AUTH_KEY = 'testkey';
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
 type ClientIncomingMap = {
@@ -63,7 +63,7 @@ type ServerIncomingMap = {
 
 function bindFailureHandlers(server: Server<ServerIncomingMap, MyChannels, {}, ClientIncomingMap>) {
 	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-	if (shouldLogErrors) {
+	if (SHOULD_LOG_ERRORS) {
 		(async () => {
 			for await (const { error } of server.listen('error')) {
 				console.error('ERROR', error);
@@ -71,7 +71,7 @@ function bindFailureHandlers(server: Server<ServerIncomingMap, MyChannels, {}, C
 		})();
 	}
 	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-	if (shouldLogWarnings) {
+	if (SHOULD_LOG_WARNINGS) {
 		(async () => {
 			for await (const { warning } of server.listen('warning')) {
 				console.warn('WARNING', warning);
@@ -114,9 +114,9 @@ async function loginWithTenDayExpAndExpiryHandler({ options: authToken, transpor
 		throw err;
 	}
 
-	authToken.exp = Math.round(Date.now() / 1000) + tenDaysInSeconds;
+	authToken.exp = Math.round(Date.now() / 1000) + TEN_DAYS_IN_SECONDS;
 
-	await transport.setAuthorization(authToken, { expiresIn: tenDaysInSeconds * 100 });
+	await transport.setAuthorization(authToken, { expiresIn: TEN_DAYS_IN_SECONDS * 100 });
 }
 
 async function loginWithTenDayExpHandler({ options: authToken, transport }: ServerRequestHandlerArgs<AuthToken>): Promise<void> {
@@ -126,7 +126,7 @@ async function loginWithTenDayExpHandler({ options: authToken, transport }: Serv
 		throw err;
 	}
 
-	authToken.exp = Math.round(Date.now() / 1000) + tenDaysInSeconds;
+	authToken.exp = Math.round(Date.now() / 1000) + TEN_DAYS_IN_SECONDS;
 
 	await transport.setAuthorization(authToken);
 }
@@ -138,7 +138,7 @@ async function loginWithTenDayExpiryHandler({ options: authToken, transport }: S
 		throw err;
 	}
 
-	await transport.setAuthorization(authToken, { expiresIn: tenDaysInSeconds });
+	await transport.setAuthorization(authToken, { expiresIn: TEN_DAYS_IN_SECONDS });
 }
 
 async function procHandler({ options: data }: RequestHandlerArgs<number>): Promise<string> {
@@ -150,13 +150,13 @@ async function setAuthKeyHandler({ options: secret, socket }: ServerRequestHandl
 }
 
 const clientOptions: ClientSocketOptions<ServerIncomingMap> = {
-	address: `ws://127.0.0.1:${portNumber}`,
-	authEngine: { authTokenName }
+	address: `ws://127.0.0.1:${PORT_NUMBER}`,
+	authEngine: { authTokenName: AUTH_TOKEN_NAME }
 };
 
 const serverOptions: ServerOptions<ServerIncomingMap, MyChannels, {}, ClientIncomingMap> = {
 	ackTimeoutMs: 200,
-	authEngine: { authKey: serverAuthKey },
+	authEngine: { authKey: SERVER_AUTH_KEY },
 	handlers: {
 		login: loginHandler,
 		loginWithIssAndIssuer: loginWithIssAndIssuerHandler,
@@ -184,13 +184,13 @@ describe('Server Tests', function () {
 			server.httpServer.close();
 			await server.close();
 		}
-		global.localStorage.removeItem(authTokenName);
+		global.localStorage.removeItem(AUTH_TOKEN_NAME);
 	});
 
 	describe('Client authentication', function () {
 		beforeEach(async function () {
 			server = listen(
-				portNumber,
+				PORT_NUMBER,
 				{
 					plugins: [{
 						onAuthenticate: (authInfo: AuthInfo) => {
@@ -228,7 +228,7 @@ describe('Server Tests', function () {
 		});
 
 		it('Should send back error if JWT is invalid during handshake', async function () {
-			global.localStorage.setItem(authTokenName, validSignedAuthTokenBob);
+			global.localStorage.setItem(AUTH_TOKEN_NAME, VALID_SIGNED_AUTH_TOKEN_BOB);
 
 			client = new ClientSocket(clientOptions);
 
@@ -246,7 +246,7 @@ describe('Server Tests', function () {
 		});
 
 		it('Should allow switching between users', async function () {
-			global.localStorage.setItem(authTokenName, validSignedAuthTokenBob);
+			global.localStorage.setItem(AUTH_TOKEN_NAME, VALID_SIGNED_AUTH_TOKEN_BOB);
 
 			const authenticateEvents: (AuthToken | null)[] = [];
 			const deauthenticateEvents: (AuthToken | null)[] = [];
@@ -318,7 +318,7 @@ describe('Server Tests', function () {
 		});
 
 		it('Should emit correct events/data when socket is deauthenticated', async function () {
-			global.localStorage.setItem(authTokenName, validSignedAuthTokenBob);
+			global.localStorage.setItem(AUTH_TOKEN_NAME, VALID_SIGNED_AUTH_TOKEN_BOB);
 
 			const authenticationStateChangeEvents: SocketAuthStateChangeEvent<MyChannels, {}, ServerIncomingMap, ClientIncomingMap, {}, {}, {}, {}>[] = [];
 			const authStateChangeEvents: AuthStateChangeEvent[] = [];
@@ -372,7 +372,7 @@ describe('Server Tests', function () {
 		});
 
 		it('Should throw error if server socket deauthenticate is called after client disconnected and rejectOnFailedDelivery is true', async function () {
-			global.localStorage.setItem(authTokenName, validSignedAuthTokenBob);
+			global.localStorage.setItem(AUTH_TOKEN_NAME, VALID_SIGNED_AUTH_TOKEN_BOB);
 
 			client = new ClientSocket(clientOptions);
 
@@ -391,7 +391,7 @@ describe('Server Tests', function () {
 		});
 
 		it('Should not throw error if server socket deauthenticate is called after client disconnected and rejectOnFailedDelivery is not true', async function () {
-			global.localStorage.setItem(authTokenName, validSignedAuthTokenBob);
+			global.localStorage.setItem(AUTH_TOKEN_NAME, VALID_SIGNED_AUTH_TOKEN_BOB);
 
 			client = new ClientSocket(clientOptions);
 
@@ -402,7 +402,7 @@ describe('Server Tests', function () {
 		});
 
 		it('Should not authenticate the client if MIDDLEWARE_INBOUND blocks the authentication', async function () {
-			global.localStorage.setItem(authTokenName, validSignedAuthTokenAlice);
+			global.localStorage.setItem(AUTH_TOKEN_NAME, VALID_SIGNED_AUTH_TOKEN_ALICE);
 
 			client = new ClientSocket(clientOptions);
 			// The previous test authenticated us as 'alice', so that token will be passed to the server as
@@ -418,7 +418,7 @@ describe('Server Tests', function () {
 
 	describe('Server authentication', function () {
 		it('Token should be available after the authenticate listener resolves', async function () {
-			server = listen(portNumber, serverOptions);
+			server = listen(PORT_NUMBER, serverOptions);
 
 			bindFailureHandlers(server);
 
@@ -437,7 +437,7 @@ describe('Server Tests', function () {
 		});
 
 		it('Authentication can be captured using the authenticate listener', async function () {
-			server = listen(portNumber, serverOptions);
+			server = listen(PORT_NUMBER, serverOptions);
 
 			bindFailureHandlers(server);
 
@@ -456,7 +456,7 @@ describe('Server Tests', function () {
 		});
 
 		it('Previously authenticated client should still be authenticated after reconnecting', async function () {
-			server = listen(portNumber, serverOptions);
+			server = listen(PORT_NUMBER, serverOptions);
 
 			bindFailureHandlers(server);
 
@@ -481,7 +481,7 @@ describe('Server Tests', function () {
 		});
 
 		it('Should set the correct expiry when using expiresIn option when creating a JWT with socket.setAuthToken', async function () {
-			server = listen(portNumber, serverOptions);
+			server = listen(PORT_NUMBER, serverOptions);
 
 			bindFailureHandlers(server);
 
@@ -496,7 +496,7 @@ describe('Server Tests', function () {
 			assert.notEqual(client.authToken, null);
 			assert.notEqual(client.authToken!.exp, null);
 
-			const dateMillisecondsInTenDays = Date.now() + tenDaysInSeconds * 1000;
+			const dateMillisecondsInTenDays = Date.now() + TEN_DAYS_IN_SECONDS * 1000;
 			const dateDifference = Math.abs(dateMillisecondsInTenDays - client.authToken!.exp! * 1000);
 
 			// Expiry must be accurate within 1000 milliseconds.
@@ -504,7 +504,7 @@ describe('Server Tests', function () {
 		});
 
 		it('Should set the correct expiry when adding exp claim when creating a JWT with socket.setAuthToken', async function () {
-			server = listen(portNumber, serverOptions);
+			server = listen(PORT_NUMBER, serverOptions);
 
 			bindFailureHandlers(server);
 
@@ -519,7 +519,7 @@ describe('Server Tests', function () {
 			assert.notEqual(client.authToken, null);
 			assert.notEqual(client.authToken!.exp, null);
 
-			const dateMillisecondsInTenDays = Date.now() + tenDaysInSeconds * 1000;
+			const dateMillisecondsInTenDays = Date.now() + TEN_DAYS_IN_SECONDS * 1000;
 			const dateDifference = Math.abs(dateMillisecondsInTenDays - client.authToken!.exp! * 1000);
 
 			// Expiry must be accurate within 1000 milliseconds.
@@ -527,7 +527,7 @@ describe('Server Tests', function () {
 		});
 
 		it('The exp claim should have priority over expiresIn option when using socket.setAuthToken', async function () {
-			server = listen(portNumber, serverOptions);
+			server = listen(PORT_NUMBER, serverOptions);
 			bindFailureHandlers(server);
 
 			await server.listen('ready').once(100);
@@ -541,7 +541,7 @@ describe('Server Tests', function () {
 			assert.notEqual(client.authToken, null);
 			assert.notEqual(client.authToken!.exp, null);
 
-			const dateMillisecondsInTenDays = Date.now() + tenDaysInSeconds * 1000;
+			const dateMillisecondsInTenDays = Date.now() + TEN_DAYS_IN_SECONDS * 1000;
 			const dateDifference = Math.abs(dateMillisecondsInTenDays - client.authToken!.exp! * 1000);
 
 			// Expiry must be accurate within 1000 milliseconds.
@@ -549,7 +549,7 @@ describe('Server Tests', function () {
 		});
 
 		it('Should send back error if socket.setAuthToken tries to set both iss claim and issuer option', async function () {
-			server = listen(portNumber, serverOptions);
+			server = listen(PORT_NUMBER, serverOptions);
 			bindFailureHandlers(server);
 
 			const warningMap: { [name: string]: Error } = {};
@@ -591,7 +591,7 @@ describe('Server Tests', function () {
 			try {
 				await client.invoke('loginWithIssAndIssuer', { username: 'bob' });
 			} catch (err) {
-				error = err;
+				error = toError(err);
 			}
 
 			assert.notEqual(error, null);
@@ -606,7 +606,7 @@ describe('Server Tests', function () {
 		});
 
 		it('Should trigger an authTokenSigned event and socket.signedAuthToken should be set after calling the socket.setAuthToken method', async function () {
-			server = listen(portNumber, serverOptions);
+			server = listen(PORT_NUMBER, serverOptions);
 			bindFailureHandlers(server);
 
 			let wasAuthTokenSignedEventEmitted = false;
@@ -640,7 +640,7 @@ describe('Server Tests', function () {
 			let reject: (err: Error) => void;
 
 			server = listen(
-				portNumber,
+				PORT_NUMBER,
 				{
 					...serverOptions,
 					handlers: {
@@ -709,7 +709,7 @@ describe('Server Tests', function () {
 			let reject: (err: Error) => void;
 
 			server = listen(
-				portNumber,
+				PORT_NUMBER,
 				{
 					...serverOptions,
 					handlers: {
@@ -773,9 +773,9 @@ describe('Server Tests', function () {
 			let resolve: () => void;
 			let reject: (err: Error) => void;
 
-			global.localStorage.setItem(authTokenName, validSignedAuthTokenBob);
+			global.localStorage.setItem(AUTH_TOKEN_NAME, VALID_SIGNED_AUTH_TOKEN_BOB);
 
-			server = listen(portNumber,
+			server = listen(PORT_NUMBER,
 				{
 					...serverOptions,
 					authEngine: {
@@ -785,7 +785,7 @@ describe('Server Tests', function () {
 						verifyToken: async (signedToken: string, verifyOptions?: jwt.VerifyOptions) => {
 							try {
 								await wait(10);
-								assert.strictEqual(signedToken, validSignedAuthTokenBob);
+								assert.strictEqual(signedToken, VALID_SIGNED_AUTH_TOKEN_BOB);
 								// assert.strictEqual(authOptions.authKey, SERVER_AUTH_KEY);
 								// assert.notEqual(verifyOptions, null);
 								// assert.notEqual(options.socket, null);
@@ -812,11 +812,11 @@ describe('Server Tests', function () {
 		});
 
 		it('Should remove client data from the server when client disconnects before authentication process finished', async function () {
-			server = listen(portNumber,
+			server = listen(PORT_NUMBER,
 				{
 					...serverOptions,
 					authEngine: {
-						authKey: serverAuthKey,
+						authKey: SERVER_AUTH_KEY,
 						signToken: async () => {
 							return '';
 						},
@@ -857,7 +857,7 @@ describe('Server Tests', function () {
 		});
 
 		it('Should close the connection if the client tries to send a malformatted authenticate packet', async function () {
-			server = listen(portNumber, serverOptions);
+			server = listen(PORT_NUMBER, serverOptions);
 
 			await server.listen('ready').once();
 
@@ -890,7 +890,7 @@ describe('Server Tests', function () {
 			const results = await Promise.allSettled([
 				server.listen('socketClose').once(100),
 				client.listen('close').once(100),
-				client.authenticate(validSignedAuthTokenBob)
+				client.authenticate(VALID_SIGNED_AUTH_TOKEN_BOB)
 			]);
 
 			assert.strictEqual(results[0].status, 'fulfilled');
@@ -906,7 +906,7 @@ describe('Server Tests', function () {
 
 	describe('Socket handshake', function () {
 		it('Exchange is attached to socket before the handshake event is triggered', async function () {
-			server = listen(portNumber, serverOptions);
+			server = listen(PORT_NUMBER, serverOptions);
 			bindFailureHandlers(server);
 
 			await server.listen('ready').once(100);
@@ -919,7 +919,7 @@ describe('Server Tests', function () {
 		});
 
 		it('Should close the connection if the client tries to send a message before the handshake', async function () {
-			server = listen(portNumber, serverOptions);
+			server = listen(PORT_NUMBER, serverOptions);
 
 			await server.listen('ready').once(100);
 
@@ -947,7 +947,7 @@ describe('Server Tests', function () {
 		});
 
 		it('Should close the connection if the client tries to send a pong before the handshake', async function () {
-			server = listen(portNumber, serverOptions);
+			server = listen(PORT_NUMBER, serverOptions);
 
 			await server.listen('ready').once(100);
 
@@ -969,7 +969,7 @@ describe('Server Tests', function () {
 		});
 
 		it('Should not close the connection if the client tries to send a message before the handshake and strictHandshake is false', async function () {
-			server = listen(portNumber,
+			server = listen(PORT_NUMBER,
 				{
 					strictHandshake: false,
 					...serverOptions
@@ -999,7 +999,7 @@ describe('Server Tests', function () {
 
 	describe('Socket connection', function () {
 		it('Server-side socket connect event and server connection event should trigger', async function () {
-			server = listen(portNumber, serverOptions);
+			server = listen(PORT_NUMBER, serverOptions);
 			bindFailureHandlers(server);
 
 			let connectionEvent: ConnectEvent | null = null;
@@ -1068,7 +1068,7 @@ describe('Server Tests', function () {
 		});
 
 		it('Server-side connection event should trigger with large number of concurrent connections', async function () {
-			server = listen(portNumber, serverOptions);
+			server = listen(PORT_NUMBER, serverOptions);
 			bindFailureHandlers(server);
 
 			const connectionList: ConnectionEvent<MyChannels, {}, ServerIncomingMap, ClientIncomingMap, {}, {}, {}, {}>[] = [];
@@ -1105,7 +1105,7 @@ describe('Server Tests', function () {
 			let requestCount = 0;
 
 			server = listen(
-				portNumber,
+				PORT_NUMBER,
 				{
 					...serverOptions,
 					handlers: {
@@ -1153,11 +1153,11 @@ describe('Server Tests', function () {
 
 	describe('Socket disconnection', function () {
 		it('Server-side socket disconnect event should not trigger if the socket did not complete the handshake; instead, it should trigger connectAbort', async function () {
-			server = listen(portNumber,
+			server = listen(PORT_NUMBER,
 				{
 					...serverOptions,
 					authEngine: {
-						authKey: serverAuthKey,
+						authKey: SERVER_AUTH_KEY,
 						signToken: async () => {
 							return '';
 						},
@@ -1236,11 +1236,11 @@ describe('Server Tests', function () {
 		});
 
 		it('Server-side socket disconnect event should trigger if the socket completed the handshake (not connectAbort)', async function () {
-			server = listen(portNumber,
+			server = listen(PORT_NUMBER,
 				{
 					...serverOptions,
 					authEngine: {
-						authKey: serverAuthKey,
+						authKey: SERVER_AUTH_KEY,
 						signToken: async () => {
 							return '';
 						},
@@ -1318,11 +1318,11 @@ describe('Server Tests', function () {
 		});
 
 		it('The close event should trigger when the socket loses the connection before the handshake', async function () {
-			server = listen(portNumber,
+			server = listen(PORT_NUMBER,
 				{
 					...serverOptions,
 					authEngine: {
-						authKey: serverAuthKey,
+						authKey: SERVER_AUTH_KEY,
 						signToken: async () => {
 							return '';
 						},
@@ -1376,11 +1376,11 @@ describe('Server Tests', function () {
 		});
 
 		it('The close event should trigger when the socket loses the connection after the handshake', async function () {
-			server = listen(portNumber,
+			server = listen(PORT_NUMBER,
 				{
 					...serverOptions,
 					authEngine: {
-						authKey: serverAuthKey,
+						authKey: SERVER_AUTH_KEY,
 						signToken: async () => {
 							return '';
 						},
@@ -1438,7 +1438,7 @@ describe('Server Tests', function () {
 			let requestDataAtTimeOfDisconnect: null | number = null;
 
 			server = listen(
-				portNumber,
+				PORT_NUMBER,
 				{
 					plugins: [new InOrderPlugin()],
 					...serverOptions,
@@ -1540,7 +1540,7 @@ describe('Server Tests', function () {
 			let isReceiverClosed = false;
 
 			server = listen(
-				portNumber,
+				PORT_NUMBER,
 				{
 					plugins: [new InOrderPlugin()],
 					...serverOptions,
@@ -1592,7 +1592,7 @@ describe('Server Tests', function () {
 			let isReceiverClosed = false;
 
 			server = listen(
-				portNumber,
+				PORT_NUMBER,
 				{
 					...serverOptions,
 					handlers: {
@@ -1643,7 +1643,7 @@ describe('Server Tests', function () {
 			let isClosedReceiver = false;
 
 			server = listen(
-				portNumber,
+				PORT_NUMBER,
 				{
 					...serverOptions,
 					handlers: {
@@ -1693,7 +1693,7 @@ describe('Server Tests', function () {
 	describe('Socket RPC invoke', function () {
 		it('Should support invoking a remote procedure on the server', async function () {
 			server = listen(
-				portNumber,
+				PORT_NUMBER,
 				{
 					...serverOptions,
 					handlers: {
@@ -1735,7 +1735,7 @@ describe('Server Tests', function () {
 	describe('Socket transmit', function () {
 		it('Should support receiving remote transmitted data on the server', function (context, done) {
 			server = listen(
-				portNumber,
+				PORT_NUMBER,
 				{
 					...serverOptions,
 					handlers: {
@@ -1766,7 +1766,7 @@ describe('Server Tests', function () {
 			const backpressureHistory: number[] = [];
 
 			server = listen(
-				portNumber,
+				PORT_NUMBER,
 				{
 					plugins: [
 						{
@@ -1828,7 +1828,7 @@ describe('Server Tests', function () {
 			})();
 
 			server = listen(
-				portNumber,
+				PORT_NUMBER,
 				{
 					plugins: [
 						{
@@ -1883,7 +1883,7 @@ describe('Server Tests', function () {
 			const backpressureHistory: number[] = [];
 
 			server = listen(
-				portNumber,
+				PORT_NUMBER,
 				{
 					plugins: [
 						{
@@ -1932,7 +1932,7 @@ describe('Server Tests', function () {
 
 	describe('Socket pub/sub', function () {
 		it('Should maintain order of publish and subscribe', async function () {
-			server = listen(portNumber, serverOptions);
+			server = listen(PORT_NUMBER, serverOptions);
 			bindFailureHandlers(server);
 
 			await server.listen('ready').once(100);
@@ -1957,7 +1957,7 @@ describe('Server Tests', function () {
 		});
 
 		it('Should maintain order of publish and subscribe when client starts out as disconnected', async function () {
-			server = listen(portNumber, serverOptions);
+			server = listen(PORT_NUMBER, serverOptions);
 			bindFailureHandlers(server);
 
 			await server.listen('ready').once();
@@ -1989,7 +1989,7 @@ describe('Server Tests', function () {
 			let error: Error | null = null;
 
 			server = listen(
-				portNumber,
+				PORT_NUMBER,
 				{
 					authEngine: {
 						signToken: async function () {
@@ -2050,7 +2050,7 @@ describe('Server Tests', function () {
 			let objectAsChannelNamePublishError: Error | null = null;
 			let nullPublishError: Error | null = null;
 
-			server = listen(portNumber, serverOptions);
+			server = listen(PORT_NUMBER, serverOptions);
 			bindFailureHandlers(server);
 
 			await server.listen('ready').once(100);
@@ -2137,7 +2137,7 @@ describe('Server Tests', function () {
 		});
 
 		it('When default SimpleBroker broker engine is used, disconnect event should trigger before unsubscribe event', async function () {
-			server = listen(portNumber, serverOptions);
+			server = listen(PORT_NUMBER, serverOptions);
 			bindFailureHandlers(server);
 
 			const eventList: ((DisconnectEvent | UnsubscribeEvent) & { type: string })[] = [];
@@ -2181,7 +2181,7 @@ describe('Server Tests', function () {
 		});
 
 		it('When default SimpleBroker broker engine is used, server.exchange should support consuming data from a channel', async function () {
-			server = listen(portNumber, serverOptions);
+			server = listen(PORT_NUMBER, serverOptions);
 			bindFailureHandlers(server);
 
 			await server.listen('ready').once(100);
@@ -2226,7 +2226,7 @@ describe('Server Tests', function () {
 		});
 
 		it('When default SimpleBroker broker engine is used, server.exchange should support publishing data to a channel', async function () {
-			server = listen(portNumber, serverOptions);
+			server = listen(PORT_NUMBER, serverOptions);
 			bindFailureHandlers(server);
 
 			await server.listen('ready').once(100);
@@ -2274,7 +2274,7 @@ describe('Server Tests', function () {
 			}
 
 			server = listen(
-				portNumber,
+				PORT_NUMBER,
 				{
 					brokerEngine: new CustomBrokerEngine(),
 					...serverOptions
@@ -2336,7 +2336,7 @@ describe('Server Tests', function () {
 		});
 
 		it('Socket should emit an error when trying to unsubscribe from a channel which it is not subscribed to', async function () {
-			server = listen(portNumber, serverOptions);
+			server = listen(PORT_NUMBER, serverOptions);
 
 			bindFailureHandlers(server);
 
@@ -2363,7 +2363,7 @@ describe('Server Tests', function () {
 			try {
 				await client.invoke('#unsubscribe' as any, 'bar');
 			} catch (err) {
-				error = err;
+				error = toError(err);
 			}
 
 			assert.notEqual(error, null);
@@ -2383,7 +2383,7 @@ describe('Server Tests', function () {
 			}
 
 			server = listen(
-				portNumber,
+				PORT_NUMBER,
 				{
 					brokerEngine: new CustomBrokerEngine(),
 					...serverOptions
@@ -2436,7 +2436,7 @@ describe('Server Tests', function () {
 		});
 
 		it('Socket channelSubscriptions and channelSubscriptionsCount should update when socket.kickOut(channel) is called', async function () {
-			server = listen(portNumber, serverOptions);
+			server = listen(PORT_NUMBER, serverOptions);
 			bindFailureHandlers(server);
 
 			const errorList: Error[] = [];
@@ -2485,7 +2485,7 @@ describe('Server Tests', function () {
 			let subscribePluginCounter = 0;
 
 			server = listen(
-				portNumber,
+				PORT_NUMBER,
 				{
 					plugins: [
 						{
@@ -2595,7 +2595,7 @@ describe('Server Tests', function () {
 
 		it('The batchOnHandshake option should not break the order of subscribe and publish', async function () {
 			server = listen(
-				portNumber,
+				PORT_NUMBER,
 				{
 					plugins: [
 						new ResponseBatchingPlugin({
@@ -2641,7 +2641,7 @@ describe('Server Tests', function () {
 				// Intentionally make pingInterval higher than pingTimeout, that
 				// way the client will never receive a ping or send back a pong.
 				server = listen(
-					portNumber,
+					PORT_NUMBER,
 					{
 						pingIntervalMs: 5000,
 						pingTimeoutMs: 500,
@@ -2703,7 +2703,7 @@ describe('Server Tests', function () {
 				// Intentionally make pingInterval higher than pingTimeout, that
 				// way the client will never receive a ping or send back a pong.
 				server = listen(
-					portNumber,
+					PORT_NUMBER,
 					{
 						isPingTimeoutDisabled: true,
 						pingIntervalMs: 1000,
@@ -2766,7 +2766,7 @@ describe('Server Tests', function () {
 				// Intentionally make pingInterval higher than pingTimeout, that
 				// way the client will never receive a ping or send back a pong.
 				server = listen(
-					portNumber,
+					PORT_NUMBER,
 					{
 						pingIntervalMs: 400,
 						pingTimeoutMs: 1000,
@@ -2824,7 +2824,7 @@ describe('Server Tests', function () {
 
 	describe('Plugin', function () {
 		beforeEach(async function () {
-			server = listen(portNumber, serverOptions);
+			server = listen(PORT_NUMBER, serverOptions);
 
 			bindFailureHandlers(server);
 
@@ -2846,7 +2846,7 @@ describe('Server Tests', function () {
 				const clientA = new ClientSocket(clientOptions);
 				const clientB = new ClientSocket({
 					...clientOptions,
-					address: `ws://127.0.0.1:${portNumber}?delayMe=true`
+					address: `ws://127.0.0.1:${PORT_NUMBER}?delayMe=true`
 				});
 
 				let isClientConnectedA = false;
@@ -3062,7 +3062,7 @@ describe('Server Tests', function () {
 				const clientA = new ClientSocket(clientOptions);
 				const clientB = new ClientSocket({
 					...clientOptions,
-					address: `ws://127.0.0.1:${portNumber}?delayMe=true`
+					address: `ws://127.0.0.1:${PORT_NUMBER}?delayMe=true`
 				});
 
 				let isClientConnectedA = false;
@@ -3146,7 +3146,7 @@ describe('Server Tests', function () {
 				try {
 					result = await client.invoke('proc', 123);
 				} catch (err) {
-					error = err;
+					error = toError(err);
 				}
 
 				assert.strictEqual(result, undefined);
@@ -3173,7 +3173,7 @@ describe('Server Tests', function () {
 			});
 
 			it('Should run onAuthenticate in plugin if JWT token exists', async function () {
-				global.localStorage.setItem(authTokenName, validSignedAuthTokenBob);
+				global.localStorage.setItem(AUTH_TOKEN_NAME, VALID_SIGNED_AUTH_TOKEN_BOB);
 				let wasPluginExecuted = false;
 
 				server.addPlugin({
@@ -3299,7 +3299,7 @@ describe('Server Tests', function () {
 				const clientA = new ClientSocket(clientOptions);
 				const clientB = new ClientSocket({
 					...clientOptions,
-					address: `ws://127.0.0.1:${portNumber}?delayMe=true`
+					address: `ws://127.0.0.1:${PORT_NUMBER}?delayMe=true`
 				});
 
 				await Promise.all([
@@ -3348,12 +3348,7 @@ describe('Server Tests', function () {
 					}
 				})();
 
-				let error: Error | null = null;
-				try {
-					await client.channels.invokePublish('hello', clientMessage);
-				} catch (err) {
-					error = err;
-				}
+				await client.channels.invokePublish('hello', clientMessage);
 
 				await wait(100);
 
@@ -3384,13 +3379,9 @@ describe('Server Tests', function () {
 					}
 				})();
 
-				let error: Error | null = null;
-
 				try {
 					await client.channels.transmitPublish('hello', clientMessage);
-				} catch (err) {
-					error = err;
-				}
+				} catch (err) {}
 
 				await wait(100);
 
