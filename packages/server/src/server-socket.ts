@@ -1,11 +1,11 @@
 import { ChannelMap } from '@socket-mesh/channels';
 import { ClientPrivateMap, ServerPrivateMap } from '@socket-mesh/client';
 import {
-	AuthenticateEvent, AuthStateChangeEvent, BadAuthTokenEvent, CloseEvent, ConnectEvent,
-	ConnectingEvent, DeauthenticateEvent, DisconnectEvent, ErrorEvent, FunctionReturnType,
-	HandlerMap, InvokeMethodOptions, InvokeServiceOptions, MessageEvent, PingEvent, PongEvent,
-	PrivateMethodMap, PublicMethodMap, RemoveAuthTokenEvent, RequestEvent, ResponseEvent,
-	ServiceMap, ServiceMethodName, ServiceName, Socket, SocketEvent, SocketOptions, toError,
+	AuthenticateEvent, AuthStateChangeEvent, BadAuthTokenEvent, BaseSocket, BaseSocketOptions,
+	CloseEvent, ConnectEvent, ConnectingEvent, DeauthenticateEvent, DisconnectEvent, ErrorEvent,
+	FunctionReturnType, HandlerMap, InvokeMethodOptions, InvokeServiceOptions, MessageEvent,
+	PingEvent, PongEvent, PrivateMethodMap, PublicMethodMap, RemoveAuthTokenEvent, RequestEvent,
+	ResponseEvent, ServiceMap, ServiceMethodName, ServiceName, SocketEvent, toError,
 	TypedRequestEvent, TypedResponseEvent, TypedSocketEvent
 } from '@socket-mesh/core';
 import { DemuxedConsumableStream, StreamEvent } from '@socket-mesh/stream-demux';
@@ -27,19 +27,12 @@ export interface ServerSocketOptions<
 	TPrivateOutgoing extends PrivateMethodMap,
 	TServerState extends object,
 	TState extends object
-> extends SocketOptions<
-	TIncoming & TPrivateIncoming & ServerPrivateMap,
-	TOutgoing,
-	TPrivateOutgoing & ClientPrivateMap,
-	TService,
-	TState & ServerSocketState
-	> {
+> extends BaseSocketOptions<TState & ServerSocketState> {
 	handlers: HandlerMap<
 		TIncoming & TPrivateIncoming & ServerPrivateMap,
-		TOutgoing,
-		TPrivateOutgoing & ClientPrivateMap,
-		TService,
-		TState & ServerSocketState
+		TState & ServerSocketState,
+		ServerSocket<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>,
+		ServerTransport<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
 	>,
 	id?: string,
 	plugins?: ServerPlugin<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>[],
@@ -58,13 +51,7 @@ export class ServerSocket<
 	TPrivateOutgoing extends PrivateMethodMap = {},
 	TServerState extends object = {},
 	TState extends object = {}
-> extends Socket<
-	TIncoming & TPrivateIncoming & ServerPrivateMap,
-	TOutgoing,
-	TPrivateOutgoing & ClientPrivateMap,
-	TService,
-	TState & ServerSocketState
-	> {
+> extends BaseSocket<TState & ServerSocketState> {
 	private _serverTransport: ServerTransport<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
 	public readonly server: Server<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
 

@@ -1,14 +1,8 @@
-import { AnyRequest, MethodMap, Plugin, PrivateMethodMap, PublicMethodMap, SendRequestPluginArgs, ServiceMap } from '@socket-mesh/core';
+import { AnyRequest, Plugin, SendRequestPluginArgs } from '@socket-mesh/core';
 
 const SYSTEM_METHODS = ['#handshake', '#removeAuthToken'];
 
-export class OfflinePlugin<
-	TIncoming extends MethodMap,
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap,
-	TState extends object
-> implements Plugin<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState> {
+export class OfflinePlugin implements Plugin {
 	private _continue: ((requests: AnyRequest[], cb?: (error?: Error) => void) => void) | null;
 	private _isReady: boolean;
 	private _requests: AnyRequest[][];
@@ -50,7 +44,7 @@ export class OfflinePlugin<
 		this.flush();
 	}
 
-	public sendRequest({ cont, requests }: SendRequestPluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>): void {
+	public sendRequest({ cont, requests }: SendRequestPluginArgs): void {
 		if (this._isReady) {
 			cont(requests);
 			return;

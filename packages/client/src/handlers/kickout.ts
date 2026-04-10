@@ -3,19 +3,14 @@ import { RequestHandlerArgs } from '@socket-mesh/core';
 
 import { ClientSocket } from '../client-socket.js';
 import { ClientTransport } from '../client-transport.js';
-import { ClientPrivateMap, KickOutOptions } from '../maps/client-map.js';
-import { ServerPrivateMap } from '../maps/server-map.js';
+import { KickOutOptions } from '../maps/client-map.js';
 
 export async function kickOutHandler(
 	{ options, socket }: RequestHandlerArgs<
 		KickOutOptions,
-		ClientPrivateMap,
-		{},
-		ServerPrivateMap,
-		{},
 		{},
 		ClientSocket<{}, ChannelMap>,
-		ClientTransport<{}, {}, {}, {}, { }>
+		ClientTransport<{}>
 	>
 ): Promise<void> {
 	socket.channels.kickOut(options.channel, options.message);

@@ -3,29 +3,28 @@ import { AuthToken, SignedAuthToken } from '@socket-mesh/auth';
 import { CodecEngine } from '@socket-mesh/formatter';
 import { DemuxedConsumableStream, StreamEvent } from '@socket-mesh/stream-demux';
 
-import { HandlerMap } from './maps/handler-map.js';
-import { MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap } from './maps/method-map.js';
-import { Plugin } from './plugins/plugin.js';
+import {
+	FunctionReturnType, PrivateMethodMap, PublicMethodMap, ServiceMap, ServiceMethodName, ServiceName
+} from './maps/method-map.js';
+import { AnyPlugin } from './plugins/plugin.js';
+import { LooseHandlerMap } from './request-handler.js';
 import {
 	AuthenticateEvent, AuthStateChangeEvent, BadAuthTokenEvent, CloseEvent, ConnectEvent,
 	ConnectingEvent, DeauthenticateEvent, DisconnectEvent, ErrorEvent, MessageEvent, PingEvent,
-	PongEvent, RemoveAuthTokenEvent, RequestEvent, ResponseEvent, SocketEvent
+	PongEvent, RemoveAuthTokenEvent, RequestEvent, ResponseEvent, SocketEvent, TypedRequestEvent,
+	TypedResponseEvent
 } from './socket-event.js';
-import { CallIdGenerator, InvokeMethodOptions, InvokeServiceOptions, SocketTransport } from './socket-transport.js';
+import {
+	BaseSocketTransport, CallIdGenerator, InvokeMethodOptions, InvokeServiceOptions
+} from './socket-transport.js';
 
-export interface SocketOptions<
-	TIncoming extends MethodMap,
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap,
-	TState extends object
-> {
+export interface BaseSocketOptions<TState extends object = {}> {
 	ackTimeoutMs?: number,
 	callIdGenerator?: CallIdGenerator,
 	codecEngine?: CodecEngine,
-	handlers?: HandlerMap<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>,
+	handlers?: LooseHandlerMap,
 	isPingTimeoutDisabled?: boolean,
-	plugins?: Plugin<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>[],
+	plugins?: AnyPlugin[],
 	state?: Partial<TState>,
 
 	// Lets you specify the default cleanup behaviour for
@@ -39,23 +38,55 @@ export interface SocketOptions<
 	streamCleanupMode?: StreamCleanupMode
 }
 
+export type Socket<
+	TIncoming extends PublicMethodMap = {},
+	TOutgoing extends PublicMethodMap = {},
+	TState extends object = {},
+	TService extends ServiceMap = {},
+	TPrivateIncoming extends PrivateMethodMap = {},
+	TPrivateOutgoing extends PrivateMethodMap = {}
+> = Omit<BaseSocket<TState>, 'invoke' | 'listen' | 'transmit'> & {
+	invoke<TMethod extends keyof TOutgoing & string>(
+		method: TMethod, arg?: Parameters<TOutgoing[TMethod]>[0]
+	): Promise<FunctionReturnType<TOutgoing[TMethod]>>,
+	invoke<TMethod extends keyof TOutgoing & string>(
+		options: InvokeMethodOptions<TOutgoing, TMethod>, arg?: Parameters<TOutgoing[TMethod]>[0]
+	): Promise<FunctionReturnType<TOutgoing[TMethod]>>,
+	invoke<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(
+		options: [TServiceName, TMethod, (false | number)?], arg?: Parameters<TService[TServiceName][TMethod]>[0]
+	): Promise<FunctionReturnType<TService[TServiceName][TMethod]>>,
+	invoke<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(
+		options: InvokeServiceOptions<TService, TServiceName, TMethod>, arg?: Parameters<TService[TServiceName][TMethod]>[0]
+	): Promise<FunctionReturnType<TService[TServiceName][TMethod]>>,
+	invoke<TMethod extends keyof TPrivateOutgoing & string>(
+		method: TMethod, arg?: Parameters<TPrivateOutgoing[TMethod]>[0]
+	): Promise<FunctionReturnType<TPrivateOutgoing[TMethod]>>,
+
+	listen(event: 'request'): DemuxedConsumableStream<TypedRequestEvent<TIncoming & TPrivateIncoming, TService>>,
+	listen(event: 'response'): DemuxedConsumableStream<TypedResponseEvent<TOutgoing, TPrivateOutgoing, TService>>,
+
+	transmit<TMethod extends keyof TOutgoing & string>(
+		method: TMethod, arg?: Parameters<TOutgoing[TMethod]>[0]
+	): Promise<void>,
+	transmit<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(
+		options: [TServiceName, TMethod], arg?: Parameters<TService[TServiceName][TMethod]>[0]
+	): Promise<void>,
+	transmit<TMethod extends keyof TPrivateOutgoing & string>(
+		method: TMethod, arg?: Parameters<TPrivateOutgoing[TMethod]>[0]
+	): Promise<void>
+};
+
 export type SocketStatus = 'closed' | 'closing' | 'connecting' | 'ready';
 
 export type StreamCleanupMode = 'close' | 'kill' | 'none';
 
-export class Socket<
-	TIncoming extends MethodMap,
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap,
-	TState extends object
-> extends AsyncStreamEmitter<SocketEvent | undefined> {
-	private readonly _transport: SocketTransport<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>;
+export class BaseSocket<TState extends object = {}> extends AsyncStreamEmitter<SocketEvent | undefined> {
+	private readonly _transport: BaseSocketTransport<TState>;
 	public readonly state: Partial<TState>;
 
 	protected constructor(
-		transport: SocketTransport<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>,
-		options?: SocketOptions<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>
+		transport: BaseSocketTransport<TState>,
+		options?: BaseSocketOptions<TState>
 	) {
 		super();
 

@@ -1,12 +1,15 @@
 import { AuthEngine, AuthOptions } from '@socket-mesh/auth-engine';
 import { ChannelMap } from '@socket-mesh/channels';
-import { ClientPrivateMap, ServerPrivateMap } from '@socket-mesh/client';
+import { ServerPrivateMap } from '@socket-mesh/client';
 import { CallIdGenerator, HandlerMap, PrivateMethodMap, PublicMethodMap, ServiceMap, StreamCleanupMode } from '@socket-mesh/core';
 import { CodecEngine } from '@socket-mesh/formatter';
 import { ServerOptions as WebSocketServerOptions } from 'ws';
 
 import { Broker } from './broker/broker.js';
 import { ServerPlugin } from './plugin/server-plugin.js';
+import { ServerSocketState } from './server-socket-state.js';
+import { ServerSocket } from './server-socket.js';
+import { ServerTransport } from './server-transport.js';
 
 export interface ServerOptions<
 	TIncoming extends PublicMethodMap = {},
@@ -33,7 +36,12 @@ export interface ServerOptions<
 
 	codecEngine?: CodecEngine,
 
-	handlers?: HandlerMap<TIncoming & TPrivateIncoming & ServerPrivateMap, TOutgoing, TPrivateOutgoing & ClientPrivateMap, TService, TState>,
+	handlers?: HandlerMap<
+		TIncoming & TPrivateIncoming & ServerPrivateMap,
+		TState & ServerSocketState,
+		ServerSocket<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>,
+		ServerTransport<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
+	>,
 
 	// In milliseconds, the timeout for receiving a response
 	// when using invoke() or invokePublish(). ackTimeout: number

@@ -1,9 +1,7 @@
-import { MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap, SocketOptions } from '@socket-mesh/core';
+import { BaseSocketOptions } from '@socket-mesh/core';
 import ws from 'isomorphic-ws';
 
 import { ClientAuthEngine, LocalStorageAuthEngineOptions } from './client-auth-engine.js';
-import { ClientPrivateMap } from './maps/client-map.js';
-import { ServerPrivateMap } from './maps/server-map.js';
 
 export interface AutoReconnectOptions {
 	initialDelay: number,
@@ -13,18 +11,8 @@ export interface AutoReconnectOptions {
 }
 
 export interface ClientSocketOptions<
-	TOutgoing extends PublicMethodMap = {},
-	TService extends ServiceMap = {},
-	TIncoming extends MethodMap = {},
-	TPrivateOutgoing extends PrivateMethodMap = {},
 	TState extends object = {}
-> extends SocketOptions<
-	TIncoming & ClientPrivateMap,
-	TOutgoing,
-	TPrivateOutgoing & ServerPrivateMap,
-	TService,
-	TState
-	> {
+> extends BaseSocketOptions<TState> {
 	address: string | URL,
 
 	// A custom engine to use for storing and loading JWT auth tokens on the client side.
@@ -72,12 +60,8 @@ export function parseAutoReconnectOptions(value?: boolean | Partial<AutoReconnec
 }
 
 export function parseClientOptions<
-	TIncoming extends MethodMap,
-	TService extends ServiceMap,
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
 	TState extends object
->(options: ClientSocketOptions<TOutgoing, TService, TIncoming, TPrivateOutgoing, TState> | string | URL): ClientSocketOptions<TOutgoing, TService, TIncoming, TPrivateOutgoing, TState> {
+>(options: ClientSocketOptions<TState> | string | URL): ClientSocketOptions<TState> {
 	if (typeof options === 'string' || 'pathname' in options) {
 		options = { address: options };
 	}

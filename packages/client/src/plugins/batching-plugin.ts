@@ -1,4 +1,3 @@
-import { MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap } from '@socket-mesh/core';
 import { AnyRequest, AnyResponse, Plugin, SendRequestPluginArgs, SendResponsePluginArgs } from '@socket-mesh/core';
 
 export interface BatchingPluginOptions<TType = string> {
@@ -14,13 +13,8 @@ export interface BatchingPluginOptions<TType = string> {
 }
 
 export abstract class BatchingPlugin<
-	TIncoming extends MethodMap,
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap,
-	TState extends object,
 	TType extends string
-> implements Plugin<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState> {
+> implements Plugin {
 	private _batchingIntervalId: NodeJS.Timeout | null;
 	private _handshakeTimeoutId: NodeJS.Timeout | null;
 
@@ -105,13 +99,7 @@ export abstract class BatchingPlugin<
 	}
 }
 
-export class RequestBatchingPlugin<
-	TIncoming extends MethodMap,
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap,
-	TState extends object
-> extends BatchingPlugin<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState, 'requestBatching'> {
+export class RequestBatchingPlugin extends BatchingPlugin<'requestBatching'> {
 	private _continue: ((requests: AnyRequest[], cb?: (error?: Error) => void) => void) | null;
 	private _requests: AnyRequest[];
 
@@ -143,7 +131,7 @@ export class RequestBatchingPlugin<
 		}
 	}
 
-	public sendRequest({ cont, requests }: SendRequestPluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>): void {
+	public sendRequest({ cont, requests }: SendRequestPluginArgs): void {
 		if (!this.isBatching) {
 			cont(requests);
 			return;
@@ -154,13 +142,7 @@ export class RequestBatchingPlugin<
 	}
 }
 
-export class ResponseBatchingPlugin<
-	TIncoming extends MethodMap,
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap,
-	TState extends object
-> extends BatchingPlugin<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState, 'responseBatching'> {
+export class ResponseBatchingPlugin extends BatchingPlugin<'responseBatching'> {
 	private _continue: ((requests: AnyResponse[], cb?: (error?: Error) => void) => void) | null;
 	private _responses: AnyResponse[];
 
@@ -185,7 +167,7 @@ export class ResponseBatchingPlugin<
 		}
 	}
 
-	public sendResponse({ cont, responses }: SendResponsePluginArgs<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>): void {
+	public sendResponse({ cont, responses }: SendResponsePluginArgs): void {
 		if (!this.isBatching) {
 			cont(responses);
 			return;

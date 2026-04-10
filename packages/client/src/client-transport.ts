@@ -1,26 +1,15 @@
 import { AuthToken } from '@socket-mesh/auth';
-import { InvokeMethodOptions, InvokeServiceOptions, MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap, SocketStatus, SocketTransport, toError } from '@socket-mesh/core';
+import { BaseSocketTransport, InvokeMethodOptions, InvokeServiceOptions, SocketStatus, toError } from '@socket-mesh/core';
 import { HandshakeError, hydrateError, SocketClosedError, SocketProtocolErrorStatuses } from '@socket-mesh/errors';
 import ws from 'isomorphic-ws';
 
 import { ClientAuthEngine, isAuthEngine, LocalStorageAuthEngine } from './client-auth-engine.js';
 import { AutoReconnectOptions, ClientSocketOptions, ConnectOptions, parseAutoReconnectOptions } from './client-socket-options.js';
-import { ClientPrivateMap } from './maps/client-map.js';
-import { HandshakeStatus, ServerPrivateMap } from './maps/server-map.js';
+import { HandshakeStatus } from './maps/server-map.js';
 
 export class ClientTransport<
-	TIncoming extends MethodMap,
-	TService extends ServiceMap,
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TState extends object
-> extends SocketTransport<
-	TIncoming & ClientPrivateMap,
-	TOutgoing,
-	TPrivateOutgoing & ServerPrivateMap,
-	TService,
-	TState
-	> {
+	TState extends object = {}
+> extends BaseSocketTransport<TState> {
 	private _autoReconnect: AutoReconnectOptions | false;
 
 	private _connectAttempts: number;
@@ -37,7 +26,7 @@ export class ClientTransport<
 
 	public type: 'client';
 
-	constructor(options: ClientSocketOptions<TOutgoing, TService, TIncoming, TPrivateOutgoing, TState>) {
+	constructor(options: ClientSocketOptions<TState>) {
 		super(options);
 
 		this.type = 'client';

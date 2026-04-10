@@ -1,10 +1,8 @@
 import { ChannelMap, ChannelOptions } from '@socket-mesh/channels';
-import { ClientPrivateMap, ServerPrivateMap } from '@socket-mesh/client';
 import { Plugin, PrivateMethodMap, PublicMethodMap, ServiceMap } from '@socket-mesh/core';
 import { IncomingMessage } from 'http';
 
 import { AuthInfo } from '../handlers/authenticate.js';
-import { ServerSocketState } from '../server-socket-state.js';
 import { ServerSocket } from '../server-socket.js';
 import { ServerTransport } from '../server-transport.js';
 
@@ -49,11 +47,8 @@ export interface ServerPlugin<
 	TServerState extends object,
 	TState extends object
 > extends Plugin<
-	TIncoming & TPrivateIncoming & ServerPrivateMap,
-	TOutgoing,
-	TPrivateOutgoing & ClientPrivateMap,
-	TService,
-	TState & ServerSocketState
+		ServerSocket<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>,
+		ServerTransport<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
 	> {
 	onAuthenticate?: (authInfo: AuthInfo) => void,
 	onConnection?: (request: IncomingMessage) => Promise<void>,

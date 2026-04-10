@@ -1,8 +1,7 @@
 import { AuthToken, SignedAuthToken } from '@socket-mesh/auth';
 import { AuthTokenOptions } from '@socket-mesh/auth-engine';
 import { ChannelMap, PublishOptions } from '@socket-mesh/channels';
-import { ClientPrivateMap, ServerPrivateMap } from '@socket-mesh/client';
-import { abortRequest, AnyPacket, AnyRequest, AnyResponse, InboundMessage, PrivateMethodMap, PublicMethodMap, ServiceMap, SocketStatus, SocketTransport, toError } from '@socket-mesh/core';
+import { abortRequest, AnyPacket, AnyRequest, AnyResponse, BaseSocketTransport, InboundMessage, PrivateMethodMap, PublicMethodMap, ServiceMap, SocketStatus, toError } from '@socket-mesh/core';
 import { AuthError, BrokerError, InvalidActionError, SocketProtocolErrorStatuses } from '@socket-mesh/errors';
 import base64id from 'base64id';
 import { IncomingMessage } from 'http';
@@ -22,13 +21,7 @@ export class ServerTransport<
 	TPrivateOutgoing extends PrivateMethodMap = {},
 	TServerState extends object = {},
 	TState extends object = {}
-> extends SocketTransport<
-	TIncoming & TPrivateIncoming & ServerPrivateMap,
-	TOutgoing,
-	TPrivateOutgoing & ClientPrivateMap,
-	TService,
-	TState & ServerSocketState
-	> {
+> extends BaseSocketTransport<TState & ServerSocketState> {
 	public override id: string;
 	public readonly plugins: ServerPlugin<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>[];
 	public readonly request: IncomingMessage;

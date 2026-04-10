@@ -72,7 +72,7 @@ async function setAuthKeyHandler({ options: secret, socket }: ServerRequestHandl
 	socket.server!.auth.authKey = secret;
 }
 
-const clientOptions: ClientSocketOptions<ServerIncomingMap> = {
+const clientOptions: ClientSocketOptions = {
 	ackTimeoutMs: 200,
 	address: `ws://127.0.0.1:${PORT_NUMBER}`,
 	authEngine: { authTokenName: AUTH_TOKEN_NAME }

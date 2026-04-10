@@ -3,14 +3,16 @@ import { AbortError, AuthError, BadConnectionError, dehydrateError, hydrateError
 import defaultCodec, { CodecEngine } from '@socket-mesh/formatter';
 import ws from 'isomorphic-ws';
 
-import { HandlerMap } from './maps/handler-map.js';
-import { MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap } from './maps/method-map.js';
+import {
+	FunctionReturnType, MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap, ServiceMethodName,
+	ServiceName
+} from './maps/method-map.js';
 import { AnyPacket, isRequestPacket } from './packet.js';
-import { Plugin } from './plugins/plugin.js';
-import { RequestHandlerArgs } from './request-handler.js';
+import { AnyPlugin } from './plugins/plugin.js';
+import { LooseHandlerMap, RequestHandlerArgs } from './request-handler.js';
 import { abortRequest, AnyRequest, InvokeMethodRequest, InvokeServiceRequest, isRequestDone, TransmitMethodRequest, TransmitServiceRequest } from './request.js';
 import { AnyResponse, DataResponse, isResponsePacket } from './response.js';
-import { Socket, SocketOptions, SocketStatus, StreamCleanupMode } from './socket.js';
+import { BaseSocket, BaseSocketOptions, Socket, SocketStatus, StreamCleanupMode } from './socket.js';
 import { toArray, toError, wait } from './utils.js';
 
 export type CallIdGenerator = () => number;
@@ -46,21 +48,55 @@ export interface InvokeServiceOptions<
 	service: TService
 }
 
+export type SocketTransport<
+	TIncoming extends PublicMethodMap = {},
+	TOutgoing extends PublicMethodMap = {},
+	TState extends object = {},
+	TService extends ServiceMap = {},
+	TPrivateIncoming extends PrivateMethodMap = {},
+	TPrivateOutgoing extends PrivateMethodMap = {}
+> = Omit<BaseSocketTransport<TState>, 'invoke' | 'socket' | 'transmit'> & {
+	invoke<TMethod extends keyof TOutgoing & string>(
+		method: TMethod, arg?: Parameters<TOutgoing[TMethod]>[0]
+	): [Promise<FunctionReturnType<TOutgoing[TMethod]>>, () => void],
+	invoke<TMethod extends keyof TOutgoing & string>(
+		options: InvokeMethodOptions<TOutgoing, TMethod>, arg?: Parameters<TOutgoing[TMethod]>[0]
+	): [Promise<FunctionReturnType<TOutgoing[TMethod]>>, () => void],
+	invoke<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(
+		options: [TServiceName, TMethod, (false | number)?], arg?: Parameters<TService[TServiceName][TMethod]>[0]
+	): [Promise<FunctionReturnType<TService[TServiceName][TMethod]>>, () => void],
+	invoke<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(
+		options: InvokeServiceOptions<TService, TServiceName, TMethod>, arg?: Parameters<TService[TServiceName][TMethod]>[0]
+	): [Promise<FunctionReturnType<TService[TServiceName][TMethod]>>, () => void],
+	invoke<TMethod extends keyof TPrivateOutgoing & string>(
+		method: TMethod, arg?: Parameters<TPrivateOutgoing[TMethod]>[0]
+	): [Promise<FunctionReturnType<TPrivateOutgoing[TMethod]>>, () => void],
+	invoke<TMethod extends keyof TPrivateOutgoing & string>(
+		options: InvokeMethodOptions<TPrivateOutgoing, TMethod>, arg?: Parameters<TPrivateOutgoing[TMethod]>[0]
+	): [Promise<FunctionReturnType<TPrivateOutgoing[TMethod]>>, () => void],
+
+	readonly socket: Socket<TIncoming, TOutgoing, TState, TService, TPrivateIncoming, TPrivateOutgoing>,
+
+	transmit<TMethod extends keyof TOutgoing & string>(
+		method: TMethod, arg?: Parameters<TOutgoing[TMethod]>[0]
+	): Promise<void>,
+	transmit<TServiceName extends ServiceName<TService>, TMethod extends ServiceMethodName<TService, TServiceName>>(
+		options: [TServiceName, TMethod], arg?: Parameters<TService[TServiceName][TMethod]>[0]
+	): Promise<void>,
+	transmit<TMethod extends keyof TPrivateOutgoing & string>(
+		method: TMethod, arg?: Parameters<TPrivateOutgoing[TMethod]>[0]
+	): Promise<void>
+};
+
 interface WebSocketError extends Error {
 	code?: string
 }
 
-export class SocketTransport<
-	TIncoming extends MethodMap,
-	TOutgoing extends PublicMethodMap,
-	TPrivateOutgoing extends PrivateMethodMap,
-	TService extends ServiceMap,
-	TState extends object
-> {
+export class BaseSocketTransport<TState extends object = {}> {
 	private _authToken: AuthToken | null;
 	private readonly _callbackMap: { [cid: number]: InvokeCallback<unknown> };
 	private readonly _callIdGenerator: CallIdGenerator;
-	private readonly _handlers: HandlerMap<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>;
+	private readonly _handlers: LooseHandlerMap;
 	private _inboundProcessedMessageCount: number;
 	private _inboundReceivedMessageCount: number;
 	private _isReady: boolean;
@@ -68,16 +104,16 @@ export class SocketTransport<
 	private _outboundSentMessageCount: number;
 	private _pingTimeoutRef: NodeJS.Timeout | null;
 	private _signedAuthToken: null | SignedAuthToken;
-	private _socket!: Socket<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>;
+	private _socket!: BaseSocket<TState>;
 	private _webSocket: null | ws.WebSocket;
 	public ackTimeoutMs: number;
 	public readonly codecEngine: CodecEngine;
 	public id: null | string;
-	public readonly plugins: Plugin<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>[];
+	public readonly plugins: AnyPlugin[];
 
 	public streamCleanupMode: StreamCleanupMode;
 
-	protected constructor(options?: SocketOptions<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>) {
+	protected constructor(options?: BaseSocketOptions<TState>) {
 		let cid = 1;
 
 		this._isReady = false;
@@ -458,7 +494,7 @@ export class SocketTransport<
 				response = { error: pluginError, rid: packet.cid, timeoutAt };
 			}
 		} else {
-			const handler = this._handlers[packet.method as keyof TIncoming];
+			const handler = this._handlers[packet.method];
 
 			if (handler) {
 				wasHandled = true;
@@ -805,11 +841,11 @@ export class SocketTransport<
 		return this._signedAuthToken;
 	}
 
-	public get socket(): Socket<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState> {
+	public get socket(): BaseSocket<TState> {
 		return this._socket;
 	}
 
-	public set socket(value: Socket<TIncoming, TOutgoing, TPrivateOutgoing, TService, TState>) {
+	public set socket(value: BaseSocket<TState>) {
 		this._socket = value;
 	}
 

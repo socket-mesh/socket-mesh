@@ -1,12 +1,12 @@
 import { SignedAuthToken } from '@socket-mesh/auth';
 import { ChannelMap } from '@socket-mesh/channels';
 import {
-	AuthenticateEvent, AuthStateChangeEvent, BadAuthTokenEvent, CloseEvent, ConnectEvent,
-	ConnectingEvent, DeauthenticateEvent, DisconnectEvent, ErrorEvent, FunctionReturnType,
-	InvokeMethodOptions, InvokeServiceOptions, MessageEvent, MethodMap, PingEvent, PongEvent,
-	PrivateMethodMap, PublicMethodMap, RemoveAuthTokenEvent, RequestEvent, ResponseEvent,
-	ServiceMap, ServiceMethodName, ServiceName, Socket, SocketEvent, toError, TypedRequestEvent,
-	TypedResponseEvent, TypedSocketEvent, wait
+	AuthenticateEvent, AuthStateChangeEvent, BadAuthTokenEvent, BaseSocket, CloseEvent,
+	ConnectEvent, ConnectingEvent, DeauthenticateEvent, DisconnectEvent, ErrorEvent,
+	FunctionReturnType, InvokeMethodOptions, InvokeServiceOptions, MessageEvent, MethodMap,
+	PingEvent, PongEvent, PrivateMethodMap, PublicMethodMap, RemoveAuthTokenEvent, RequestEvent,
+	ResponseEvent, ServiceMap, ServiceMethodName, ServiceName, SocketEvent, toError,
+	TypedRequestEvent, TypedResponseEvent, TypedSocketEvent, wait
 } from '@socket-mesh/core';
 import { hydrateError } from '@socket-mesh/errors';
 import { DemuxedConsumableStream, StreamEvent } from '@socket-mesh/stream-demux';
@@ -28,19 +28,13 @@ export class ClientSocket<
 	TState extends object = {},
 	TIncoming extends MethodMap = {},
 	TPrivateOutgoing extends PrivateMethodMap = {}
-> extends Socket<
-	TIncoming & ClientPrivateMap,
-	TOutgoing,
-	TPrivateOutgoing & ServerPrivateMap,
-	TService,
-	TState
-	> {
-	private readonly _clientTransport: ClientTransport<TIncoming, TService, TOutgoing, TPrivateOutgoing, TState>;
-	public readonly channels: ClientChannels<TChannel, TIncoming, TService, TOutgoing, TPrivateOutgoing, TState>;
+> extends BaseSocket<TState> {
+	private readonly _clientTransport: ClientTransport<TState>;
+	public readonly channels: ClientChannels<TChannel, TState>;
 
 	constructor(address: string | URL);
-	constructor(options: ClientSocketOptions<TOutgoing, TService, TIncoming, TPrivateOutgoing, TState>);
-	constructor(options: ClientSocketOptions<TOutgoing, TService, TIncoming, TPrivateOutgoing, TState> | string | URL) {
+	constructor(options: ClientSocketOptions<TState>);
+	constructor(options: ClientSocketOptions<TState> | string | URL) {
 		options = parseClientOptions(options);
 
 		options.handlers =
@@ -59,7 +53,7 @@ export class ClientSocket<
 		super(clientTransport, options);
 
 		this._clientTransport = clientTransport;
-		this.channels = new ClientChannels<TChannel, TIncoming, TService, TOutgoing, TPrivateOutgoing, TState>(this._clientTransport, options);
+		this.channels = new ClientChannels<TChannel, TState>(this._clientTransport, options);
 
 		if (options.autoConnect !== false) {
 			this.connect(options);

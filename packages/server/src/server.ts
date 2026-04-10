@@ -1,7 +1,7 @@
 import { AsyncStreamEmitter } from '@socket-mesh/async-stream-emitter';
 import { AuthEngine, defaultAuthEngine, isAuthEngine } from '@socket-mesh/auth-engine';
 import { ChannelMap } from '@socket-mesh/channels';
-import { ClientPrivateMap, removeAuthTokenHandler, ServerPrivateMap } from '@socket-mesh/client';
+import { removeAuthTokenHandler, ServerPrivateMap } from '@socket-mesh/client';
 import { CallIdGenerator, HandlerMap, PrivateMethodMap, PublicMethodMap, ServiceMap, StreamCleanupMode, toError } from '@socket-mesh/core';
 import { ServerProtocolError } from '@socket-mesh/errors';
 import defaultCodec, { CodecEngine } from '@socket-mesh/formatter';
@@ -22,6 +22,7 @@ import { ServerPlugin } from './plugin/server-plugin.js';
 import { ServerOptions } from './server-options.js';
 import { ServerSocketState } from './server-socket-state.js';
 import { ServerSocket } from './server-socket.js';
+import { ServerTransport } from './server-transport.js';
 
 export class Server<
 	TIncoming extends PublicMethodMap = {},
@@ -37,10 +38,9 @@ export class Server<
 	private _handlers:
 	HandlerMap<
 			TIncoming & TPrivateIncoming & ServerPrivateMap,
-			TOutgoing,
-			TPrivateOutgoing & ClientPrivateMap,
-			TService,
-			TState & ServerSocketState
+			TState & ServerSocketState,
+			ServerSocket<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>,
+			ServerTransport<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
 	>;
 
 	private _isListening: boolean;
