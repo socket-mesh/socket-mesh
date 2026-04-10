@@ -4,7 +4,7 @@ import { InvalidActionError } from '@socket-mesh/errors';
 import { ServerRequestHandlerArgs } from './server-request-handler.js';
 
 export async function publishHandler(
-	{ options, socket, transport }: ServerRequestHandlerArgs<PublishOptions, {}, { [channel: string]: any }>
+	{ options, socket, transport }: ServerRequestHandlerArgs<PublishOptions, {}, {}, { [channel: string]: any }>
 ): Promise<void> {
 	if (!socket.server.allowClientPublish) {
 		throw new InvalidActionError('Client publish feature is disabled');

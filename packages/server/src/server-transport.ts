@@ -15,13 +15,13 @@ import { ServerSocket, ServerSocketOptions } from './server-socket.js';
 
 export class ServerTransport<
 	TIncoming extends PublicMethodMap = {},
+	TOutgoing extends PublicMethodMap = {},
 	TChannel extends ChannelMap = {},
 	TService extends ServiceMap = {},
-	TOutgoing extends PublicMethodMap = {},
+	TState extends object = {},
 	TPrivateIncoming extends PrivateMethodMap = {},
 	TPrivateOutgoing extends PrivateMethodMap = {},
-	TServerState extends object = {},
-	TState extends object = {}
+	TServerState extends object = {}
 > extends BaseSocketTransport<TState & ServerSocketState>
 	implements SocketTransport<
 		TIncoming & TPrivateIncoming & ServerPrivateMap,
@@ -32,13 +32,13 @@ export class ServerTransport<
 		TPrivateOutgoing & ClientPrivateMap
 	> {
 	public override id: string;
-	public readonly plugins: ServerPlugin<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>[];
+	public readonly plugins: ServerPlugin<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>[];
 	public readonly request: IncomingMessage;
 	public readonly service?: string;
 
 	public type: 'server';
 
-	constructor(options: ServerSocketOptions<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>) {
+	constructor(options: ServerSocketOptions<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>) {
 		super(options);
 
 		this.type = 'server';
@@ -320,11 +320,11 @@ export class ServerTransport<
 		this.socket.server.emit('socketConnect', { authError, id: this.socket.id, isAuthenticated: !!this.signedAuthToken, pingTimeoutMs, socket: this.socket });
 	}
 
-	public override get socket(): ServerSocket<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState> {
-		return super.socket as ServerSocket<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
+	public override get socket(): ServerSocket<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState> {
+		return super.socket as ServerSocket<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>;
 	}
 
-	public override set socket(value: ServerSocket<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>) {
+	public override set socket(value: ServerSocket<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>) {
 		super.socket = value;
 	}
 

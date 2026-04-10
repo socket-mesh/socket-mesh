@@ -7,69 +7,69 @@ import { ServerSocket } from '../server-socket.js';
 import { ServerTransport } from '../server-transport.js';
 
 export interface HandshakePluginArgs<
-	TChannel extends ChannelMap,
-	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
 	TOutgoing extends PublicMethodMap,
+	TChannel extends ChannelMap,
+	TService extends ServiceMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
+	TServerState extends object
 > {
 	authInfo: AuthInfo,
-	socket: ServerSocket<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>,
-	transport: ServerTransport<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
+	socket: ServerSocket<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>,
+	transport: ServerTransport<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
 }
 
 export interface PublishPluginArgs<
-	TChannel extends ChannelMap,
-	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
 	TOutgoing extends PublicMethodMap,
+	TChannel extends ChannelMap,
+	TService extends ServiceMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
+	TServerState extends object
 > {
 	channel: string,
 	data: any,
-	socket: ServerSocket<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>,
-	transport: ServerTransport<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
+	socket: ServerSocket<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>,
+	transport: ServerTransport<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
 }
 
 export interface ServerPlugin<
 	TIncoming extends PublicMethodMap,
+	TOutgoing extends PublicMethodMap,
 	TChannel extends ChannelMap,
 	TService extends ServiceMap,
-	TOutgoing extends PublicMethodMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
+	TServerState extends object
 > extends Plugin<
-		ServerSocket<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>,
-		ServerTransport<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
+		ServerSocket<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>,
+		ServerTransport<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
 	> {
 	onAuthenticate?: (authInfo: AuthInfo) => void,
 	onConnection?: (request: IncomingMessage) => Promise<void>,
-	onHandshake?: (options: HandshakePluginArgs<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>) => Promise<void>,
-	onPublishIn?: (options: PublishPluginArgs<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>) => Promise<any>,
-	onPublishOut?: (options: PublishPluginArgs<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>) => Promise<any>,
-	onSubscribe?: (options: SubscribePluginArgs<TChannel, TService, TIncoming, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>) => Promise<void>
+	onHandshake?: (options: HandshakePluginArgs<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>) => Promise<void>,
+	onPublishIn?: (options: PublishPluginArgs<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>) => Promise<any>,
+	onPublishOut?: (options: PublishPluginArgs<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>) => Promise<any>,
+	onSubscribe?: (options: SubscribePluginArgs<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>) => Promise<void>
 }
 
 export interface SubscribePluginArgs<
-	TChannel extends ChannelMap,
-	TService extends ServiceMap,
 	TIncoming extends PublicMethodMap,
 	TOutgoing extends PublicMethodMap,
+	TChannel extends ChannelMap,
+	TService extends ServiceMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
+	TServerState extends object
 > {
 	channel: string,
 	options: ChannelOptions,
-	socket: ServerSocket<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>,
-	transport: ServerTransport<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
+	socket: ServerSocket<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>,
+	transport: ServerTransport<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
 };

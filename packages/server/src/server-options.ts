@@ -13,13 +13,13 @@ import { ServerTransport } from './server-transport.js';
 
 export interface ServerOptions<
 	TIncoming extends PublicMethodMap = {},
+	TOutgoing extends PublicMethodMap = {},
 	TChannel extends ChannelMap = {},
 	TService extends ServiceMap = {},
-	TOutgoing extends PublicMethodMap = {},
+	TState extends object = {},
 	TPrivateIncoming extends PrivateMethodMap = {},
 	TPrivateOutgoing extends PrivateMethodMap = {},
-	TServerState extends object = {},
-	TState extends object = {}
+	TServerState extends object = {}
 > extends WebSocketServerOptions {
 	// In milliseconds, the timeout for receiving a response
 	// when using invoke() or invokePublish().
@@ -39,8 +39,8 @@ export interface ServerOptions<
 	handlers?: HandlerMap<
 		TIncoming & TPrivateIncoming & ServerPrivateMap,
 		TState & ServerSocketState,
-		ServerSocket<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>,
-		ServerTransport<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>
+		ServerSocket<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>,
+		ServerTransport<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
 	>,
 
 	// In milliseconds, the timeout for receiving a response
@@ -58,7 +58,7 @@ export interface ServerOptions<
 
 	pingTimeoutMs?: number,
 
-	plugins?: ServerPlugin<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>[],
+	plugins?: ServerPlugin<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>[],
 
 	// The maximum number of unique channels which a single socket can subscribe to.
 	socketChannelLimit?: number,

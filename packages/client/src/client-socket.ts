@@ -22,11 +22,11 @@ import { ClientPrivateMap } from './maps/client-map.js';
 import { ServerPrivateMap } from './maps/server-map.js';
 
 export class ClientSocket<
+	TIncoming extends PublicMethodMap = {},
 	TOutgoing extends PublicMethodMap = {},
 	TChannel extends ChannelMap = ChannelMap,
 	TService extends ServiceMap = {},
 	TState extends object = {},
-	TIncoming extends PublicMethodMap = {},
 	TPrivateOutgoing extends PrivateMethodMap = {}
 > extends BaseSocket<TState> implements Socket<
 	TIncoming & ClientPrivateMap,

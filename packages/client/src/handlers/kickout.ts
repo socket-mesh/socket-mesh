@@ -9,7 +9,7 @@ export async function kickOutHandler(
 	{ options, socket }: RequestHandlerArgs<
 		KickOutOptions,
 		{},
-		ClientSocket<{}, ChannelMap>,
+		ClientSocket<{}, {}, ChannelMap>,
 		ClientTransport<{}>
 	>
 ): Promise<void> {

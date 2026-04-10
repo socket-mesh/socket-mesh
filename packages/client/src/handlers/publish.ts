@@ -8,7 +8,7 @@ export async function publishHandler(
 	{ options, socket }: RequestHandlerArgs<
 		PublishOptions,
 		{},
-		ClientSocket<{}, ChannelMap>,
+		ClientSocket<{}, {}, ChannelMap>,
 		ClientTransport<{}>
 	>
 ): Promise<void> {

@@ -61,7 +61,7 @@ type ServerIncomingMap = {
 	setAuthKey: (secret: jwt.Secret) => void
 };
 
-function bindFailureHandlers(server: Server<ServerIncomingMap, MyChannels, {}, ClientIncomingMap>) {
+function bindFailureHandlers(server: Server<ServerIncomingMap, ClientIncomingMap, MyChannels>) {
 	// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
 	if (SHOULD_LOG_ERRORS) {
 		(async () => {
@@ -154,7 +154,7 @@ const clientOptions: ClientSocketOptions = {
 	authEngine: { authTokenName: AUTH_TOKEN_NAME }
 };
 
-const serverOptions: ServerOptions<ServerIncomingMap, MyChannels, {}, ClientIncomingMap> = {
+const serverOptions: ServerOptions<ServerIncomingMap, ClientIncomingMap, MyChannels> = {
 	ackTimeoutMs: 200,
 	authEngine: { authKey: SERVER_AUTH_KEY },
 	handlers: {
@@ -168,8 +168,8 @@ const serverOptions: ServerOptions<ServerIncomingMap, MyChannels, {}, ClientInco
 	}
 };
 
-let client: ClientSocket<ServerIncomingMap, MyChannels>;
-let server: Server<ServerIncomingMap, MyChannels, {}, ClientIncomingMap>;
+let client: ClientSocket<{}, ServerIncomingMap, MyChannels>;
+let server: Server<ServerIncomingMap, ClientIncomingMap, MyChannels>;
 
 describe('Server Tests', function () {
 	afterEach(async function () {
@@ -250,7 +250,7 @@ describe('Server Tests', function () {
 
 			const authenticateEvents: (AuthToken | null)[] = [];
 			const deauthenticateEvents: (AuthToken | null)[] = [];
-			const authenticationStateChangeEvents: SocketAuthStateChangeEvent<MyChannels, {}, ServerIncomingMap, ClientIncomingMap, {}, {}, {}, {}>[] = [];
+			const authenticationStateChangeEvents: SocketAuthStateChangeEvent<ServerIncomingMap, ClientIncomingMap, MyChannels, {}, {}, {}, {}, {}>[] = [];
 			const authStateChangeEvents: AuthStateChangeEvent[] = [];
 
 			(async () => {
@@ -320,7 +320,7 @@ describe('Server Tests', function () {
 		it('Should emit correct events/data when socket is deauthenticated', async function () {
 			global.localStorage.setItem(AUTH_TOKEN_NAME, VALID_SIGNED_AUTH_TOKEN_BOB);
 
-			const authenticationStateChangeEvents: SocketAuthStateChangeEvent<MyChannels, {}, ServerIncomingMap, ClientIncomingMap, {}, {}, {}, {}>[] = [];
+			const authenticationStateChangeEvents: SocketAuthStateChangeEvent<ServerIncomingMap, ClientIncomingMap, MyChannels, {}, {}, {}, {}, {}>[] = [];
 			const authStateChangeEvents: AuthStateChangeEvent[] = [];
 
 			(async () => {
@@ -834,7 +834,7 @@ describe('Server Tests', function () {
 
 			client = new ClientSocket(clientOptions);
 
-			let serverSocket: null | ServerSocket<ServerIncomingMap, MyChannels, {}, ClientIncomingMap> = null;
+			let serverSocket: null | ServerSocket<ServerIncomingMap, ClientIncomingMap, MyChannels> = null;
 
 			(async () => {
 				for await (const { socket } of server.listen('handshake')) {
@@ -1071,7 +1071,7 @@ describe('Server Tests', function () {
 			server = listen(PORT_NUMBER, serverOptions);
 			bindFailureHandlers(server);
 
-			const connectionList: ConnectionEvent<MyChannels, {}, ServerIncomingMap, ClientIncomingMap, {}, {}, {}, {}>[] = [];
+			const connectionList: ConnectionEvent<ServerIncomingMap, ClientIncomingMap, MyChannels, {}, {}, {}, {}, {}>[] = [];
 
 			(async () => {
 				for await (const event of server.listen('connection')) {
@@ -1081,8 +1081,8 @@ describe('Server Tests', function () {
 
 			await server.listen('ready').once();
 
-			const clientList: ClientSocket<ServerIncomingMap, MyChannels>[] = [];
-			let client: ClientSocket<ServerIncomingMap, MyChannels>;
+			const clientList: ClientSocket<{}, ServerIncomingMap, MyChannels>[] = [];
+			let client: ClientSocket<{}, ServerIncomingMap, MyChannels>;
 
 			for (let i = 0; i < 100; i++) {
 				client = new ClientSocket(clientOptions);
@@ -1127,8 +1127,8 @@ describe('Server Tests', function () {
 
 			await server.listen('ready').once();
 
-			const clientList: ClientSocket<ServerIncomingMap, MyChannels>[] = [];
-			let client: ClientSocket<ServerIncomingMap, MyChannels>;
+			const clientList: ClientSocket<{}, ServerIncomingMap, MyChannels>[] = [];
+			let client: ClientSocket<{}, ServerIncomingMap, MyChannels>;
 
 			for (let i = 0; i < 100; i++) {
 				client = new ClientSocket({
@@ -1444,7 +1444,7 @@ describe('Server Tests', function () {
 					...serverOptions,
 					handlers: {
 						foo: async ({ options: data, socket }: RequestHandlerArgs<number>) => {
-							const typedSocket = socket as ServerSocket<ServerIncomingMap, MyChannels, {}, ClientIncomingMap>;
+							const typedSocket = socket as ServerSocket<ServerIncomingMap, ClientIncomingMap, MyChannels>;
 							currentRequestData = data;
 							await wait(10);
 							(async () => {
@@ -2441,7 +2441,7 @@ describe('Server Tests', function () {
 			bindFailureHandlers(server);
 
 			const errorList: Error[] = [];
-			let serverSocket: ServerSocket<ServerIncomingMap, MyChannels, {}, ClientIncomingMap>;
+			let serverSocket: ServerSocket<ServerIncomingMap, ClientIncomingMap, MyChannels>;
 			let wasKickOutCalled = false;
 
 			(async () => {

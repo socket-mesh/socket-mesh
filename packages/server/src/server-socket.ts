@@ -20,32 +20,32 @@ import { Server } from './server.js';
 
 export interface ServerSocketOptions<
 	TIncoming extends PublicMethodMap,
+	TOutgoing extends PublicMethodMap,
 	TChannel extends ChannelMap,
 	TService extends ServiceMap,
-	TOutgoing extends PublicMethodMap,
+	TState extends object,
 	TPrivateIncoming extends PrivateMethodMap,
 	TPrivateOutgoing extends PrivateMethodMap,
-	TServerState extends object,
-	TState extends object
+	TServerState extends object
 > extends BaseSocketOptions<TState & ServerSocketState> {
 	handlers: LooseHandlerMap,
 	id?: string,
-	plugins?: ServerPlugin<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>[],
+	plugins?: ServerPlugin<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>[],
 	request: IncomingMessage,
-	server: Server<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>,
+	server: Server<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>,
 	service?: string,
 	socket: WebSocket
 }
 
 export class ServerSocket<
 	TIncoming extends PublicMethodMap = {},
+	TOutgoing extends PublicMethodMap = {},
 	TChannel extends ChannelMap = {},
 	TService extends ServiceMap = {},
-	TOutgoing extends PublicMethodMap = {},
+	TState extends object = {},
 	TPrivateIncoming extends PrivateMethodMap = {},
 	TPrivateOutgoing extends PrivateMethodMap = {},
-	TServerState extends object = {},
-	TState extends object = {}
+	TServerState extends object = {}
 > extends BaseSocket<TState & ServerSocketState>
 	implements Socket<
 		TIncoming & TPrivateIncoming & ServerPrivateMap,
@@ -55,11 +55,11 @@ export class ServerSocket<
 		{},
 		TPrivateOutgoing & ClientPrivateMap
 	> {
-	private _serverTransport: ServerTransport<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
-	public readonly server: Server<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>;
+	private _serverTransport: ServerTransport<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>;
+	public readonly server: Server<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>;
 
-	constructor(options: ServerSocketOptions<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>) {
-		const transport = new ServerTransport<TIncoming, TChannel, TService, TOutgoing, TPrivateIncoming, TPrivateOutgoing, TServerState, TState>(options);
+	constructor(options: ServerSocketOptions<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>) {
+		const transport = new ServerTransport<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>(options);
 
 		super(transport, options);
 
