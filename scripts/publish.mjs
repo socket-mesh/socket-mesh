@@ -28,7 +28,7 @@ console.log(`Package Version: ${packageJson.version}`);
 
 if (packageJson.version !== publishdVersion) {
 	console.log('Publishing...');
-	await promisify(exec)('npm publish --access public');
+	await promisify(exec)('pnpm publish --access public --no-git-checks');
 } else {
 	console.log('Skipping Publish.');
 }

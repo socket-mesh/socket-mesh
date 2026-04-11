@@ -1,7 +1,7 @@
 {
 	"name": "@socket-mesh/cluster-broker",
 	"description": "Cross-process pub/sub broker for SocketMesh. Provides a Broker<T> implementation that relays channel messages between worker processes through a dedicated broker process over a loopback TCP socket.",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"type": "module",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",

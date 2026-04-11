@@ -1,7 +1,7 @@
 {
 	"name": "@socket-mesh/channels",
 	"description": "Channel object for SocketMesh",
-	"version": "6.1.4",
+	"version": "6.1.5",
 	"type": "module",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
@@ -23,11 +23,13 @@
 	"bugs": {
 		"url": "https://github.com/socket-mesh/client-server/labels/channels"
 	},	
+	"devDependencies": {
+		"@socket-mesh/typescript-config": "workspace:^"
+	},
 	"dependencies": {
 		"@socket-mesh/async-stream-emitter": "workspace:^",
 		"@socket-mesh/consumable-stream": "workspace:^",
 		"@socket-mesh/stream-demux": "workspace:^",
-		"@socket-mesh/typescript-config": "workspace:^",
 		"@socket-mesh/writable-consumable-stream": "workspace:^"
 	},
 	"keywords": [

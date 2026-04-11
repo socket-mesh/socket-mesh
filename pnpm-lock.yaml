@@ -170,12 +170,13 @@ importers:
       '@socket-mesh/stream-demux':
         specifier: workspace:^
         version: link:../stream-demux
-      '@socket-mesh/typescript-config':
-        specifier: workspace:^
-        version: link:../../config/typescript-config
       '@socket-mesh/writable-consumable-stream':
         specifier: workspace:^
         version: link:../writable-consumable-stream
+    devDependencies:
+      '@socket-mesh/typescript-config':
+        specifier: workspace:^
+        version: link:../../config/typescript-config
 
   packages/client:
     dependencies:
