@@ -1,7 +1,7 @@
 {
 	"name": "@socket-mesh/channels",
 	"description": "Channel object for SocketMesh",
-	"version": "6.1.5",
+	"version": "6.1.6",
 	"type": "module",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",

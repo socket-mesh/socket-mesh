@@ -1,6 +1,6 @@
 {
 	"name": "@socket-mesh/errors",
-	"version": "3.2.1",
+	"version": "3.2.2",
 	"description": "Error types for use throughout SocketMesh",
 	"type": "module",
 	"main": "dist/index.js",

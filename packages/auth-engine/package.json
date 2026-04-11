@@ -1,6 +1,6 @@
 {
 	"name": "@socket-mesh/auth-engine",
-	"version": "1.0.2",
+	"version": "1.0.3",
 	"description": "Auth Engine module for SocketMesh Server",
 	"type": "module",
 	"main": "dist/index.js",

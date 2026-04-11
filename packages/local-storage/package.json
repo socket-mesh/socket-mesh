@@ -2,7 +2,7 @@
 	"name": "@socket-mesh/local-storage",
 	"author": "AJ ONeal <coolaj86@gmail.com> (http://coolaj86.info)",
 	"description": "W3C localStorage for Node.JS",
-	"version": "1.0.4",
+	"version": "1.0.5",
 	"homepage": "https://github.com/socket-mesh/local-storage#readme",
 	"type": "module",
 	"scripts": {

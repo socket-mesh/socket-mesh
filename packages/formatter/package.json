@@ -1,7 +1,7 @@
 {
 	"name": "@socket-mesh/formatter",
 	"description": "Module for serializing and unserializing SocketMesh messages.",
-	"version": "4.1.1",
+	"version": "4.1.2",
 	"type": "module",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",

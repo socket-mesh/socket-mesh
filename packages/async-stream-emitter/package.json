@@ -1,6 +1,6 @@
 {
 	"name": "@socket-mesh/async-stream-emitter",
-	"version": "7.2.2",
+	"version": "7.2.3",
 	"description": "An alternantive to EventEmitter using consumable streams.",
   "type": "module",
 	"main": "dist/index.js",

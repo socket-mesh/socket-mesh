@@ -1,7 +1,7 @@
 {
 	"name": "@socket-mesh/client",
 	"description": "A TCP socket pair for easily transmitting full messages without worrying about request size limits.",
-	"version": "19.1.0",
+	"version": "19.1.1",
 	"type": "module",
 	"main": "dist/index.js",
 	"types": "dist/index.d.ts",
