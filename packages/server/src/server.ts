@@ -35,7 +35,6 @@ export class Server<
 	TServerState extends object = {}
 > extends AsyncStreamEmitter<ServerEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>> {
 	private readonly _callIdGenerator: CallIdGenerator;
-	private readonly _handlers: LooseHandlerMap;
 
 	private _isListening: boolean;
 	private _isReady: boolean;
@@ -91,18 +90,21 @@ export class Server<
 		this.clientCount = 0;
 		this.codecEngine = options.codecEngine || defaultCodec;
 
-		this._handlers = Object.assign(
-			{
-				'#authenticate': authenticateHandler,
-				'#handshake': handshakeHandler,
-				'#publish': publishHandler,
-				'#removeAuthToken': removeAuthTokenHandler,
-				'#subscribe': subscribeHandler,
-				'#unsubscribe': unsubscribeHandler
-			},
-			options.handlers
-		);
-		this._serviceHandlers = {};
+		// Flat handlers live under the empty-string service key so dispatch
+		// (and Server.addHandlers/removeHandlers) only has to consult one map.
+		this._serviceHandlers = {
+			'': Object.assign(
+				{
+					'#authenticate': authenticateHandler,
+					'#handshake': handshakeHandler,
+					'#publish': publishHandler,
+					'#removeAuthToken': removeAuthTokenHandler,
+					'#subscribe': subscribeHandler,
+					'#unsubscribe': unsubscribeHandler
+				},
+				options.handlers
+			)
+		};
 
 		if (options.serviceHandlers) {
 			for (const service of Object.keys(options.serviceHandlers)) {
@@ -326,6 +328,12 @@ export class Server<
 
 	/** Method names registered under a given service, or an empty array if none. */
 	public getServiceMethods(service: string): string[] {
+		if (service === '') {
+			// The empty-string slot stores flat (non-service) handlers internally
+			// and is not part of the public service surface.
+			return [];
+		}
+
 		const group = this._serviceHandlers[service];
 		return group ? Object.keys(group) : [];
 	}
@@ -388,7 +396,6 @@ export class Server<
 			ackTimeoutMs: this.ackTimeoutMs,
 			callIdGenerator: this._callIdGenerator,
 			codecEngine: this.codecEngine,
-			handlers: this._handlers,
 			plugins: this.plugins,
 			request: upgradeReq,
 			server: this,
@@ -457,7 +464,9 @@ export class Server<
 
 	/** Names of all service handler groups currently registered on the server. */
 	public get services(): string[] {
-		return Object.keys(this._serviceHandlers);
+		// The empty-string slot holds flat (non-service) handlers internally
+		// and is not part of the public service surface.
+		return Object.keys(this._serviceHandlers).filter(service => service !== '');
 	}
 
 	private socketDisconnected(
