@@ -8,7 +8,7 @@ catalog:
   events: ^3.3.0
   "tslib": ^2.8.1
   tsx: ^4.21.0
-  turbo: ^2.8.16
+  turbo: ^2.9.6
   typescript: ^5.9.3
 
 catalogs:
@@ -34,14 +34,14 @@ catalogs:
     "@rollup/plugin-node-resolve": ^16.0.3
     "@rollup/plugin-terser": ^1.0.0
     "@rollup/plugin-typescript": ^12.3.0
-    "rollup": ^4.59.0
-    "rollup-plugin-dts": ^6.3.0
+    "rollup": ^4.60.1
+    "rollup-plugin-dts": ^6.4.1
 
   secure-data-systems:
-    "@secure-data-systems/eslint-config": 1.0.33
+    "@secure-data-systems/eslint-config": 1.0.36
     "@secure-data-systems/tsconfig": 1.0.5
 
   ws:
     isomorphic-ws: ^5.0.0
-    ws: ^8.19.0
+    ws: ^8.20.0
     "@types/ws": ^8.18.1
