@@ -3,12 +3,12 @@ import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import { StreamDemux } from '../src/stream-demux.js';
 
-const PendingTimeoutSet = new Set<NodeJS.Timeout>();
+const pendingTimeoutSet = new Set<NodeJS.Timeout>();
 
 type Packet = (number | string);
 
 function cancelAllPendingWaits() {
-	for (const timeout of PendingTimeoutSet) {
+	for (const timeout of pendingTimeoutSet) {
 		clearTimeout(timeout);
 	}
 }
@@ -16,10 +16,10 @@ function cancelAllPendingWaits() {
 function wait(duration: number) {
 	return new Promise<void>((resolve) => {
 		const timeout = setTimeout(() => {
-			PendingTimeoutSet.delete(timeout);
+			pendingTimeoutSet.delete(timeout);
 			resolve();
 		}, duration);
-		PendingTimeoutSet.add(timeout);
+		pendingTimeoutSet.add(timeout);
 	});
 }
 
@@ -428,7 +428,7 @@ describe('StreamDemux', () => {
 		try {
 			packet = await substream.once(10);
 		} catch (err) {
-			error = err;
+			error = err as Error;
 		}
 		assert.notEqual(error, null);
 		assert.strictEqual(error?.name, 'TimeoutError');
@@ -446,15 +446,15 @@ describe('StreamDemux', () => {
 		const substream = demux.listen('hello');
 
 		let packet;
-		let error;
+		let error: Error | undefined;
 		try {
 			packet = await substream.once(200);
 		} catch (err) {
-			error = err;
+			error = err as Error;
 		}
 
 		assert.notEqual(error, undefined);
-		assert.strictEqual(error.name, 'TimeoutError');
+		assert.strictEqual(error!.name, 'TimeoutError');
 		assert.strictEqual(packet, undefined);
 	});
 
@@ -481,7 +481,7 @@ describe('StreamDemux', () => {
 				if (packet.done) break;
 			}
 		} catch (err) {
-			error = err;
+			error = err as Error;
 		}
 
 		assert.notEqual(error, null);
@@ -500,15 +500,15 @@ describe('StreamDemux', () => {
 		const substream = demux.listen('hello');
 
 		let packet;
-		let error;
+		let error: Error | undefined;
 		try {
 			packet = await substream.once(200);
 		} catch (err) {
-			error = err;
+			error = err as Error;
 		}
 
 		assert.notEqual(error, undefined);
-		assert.strictEqual(error.name, 'TimeoutError');
+		assert.strictEqual(error!.name, 'TimeoutError');
 		assert.strictEqual(packet, undefined);
 	});
 

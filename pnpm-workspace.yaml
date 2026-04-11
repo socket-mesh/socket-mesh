@@ -25,7 +25,7 @@ catalogs:
     jsonwebtoken: ^9.0.3
 
   node:
-    "@types/node": ^25.4.0
+    "@types/node": ^25.6.0
 
   rollup:
     "@kineticcafe/rollup-plugin-delete": ^3.0.2

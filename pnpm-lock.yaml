@@ -47,8 +47,8 @@ catalogs:
       version: 9.0.3
   node:
     '@types/node':
-      specifier: ^25.4.0
-      version: 25.4.0
+      specifier: ^25.6.0
+      version: 25.6.0
   rollup:
     '@kineticcafe/rollup-plugin-delete':
       specifier: ^3.0.2
@@ -108,7 +108,7 @@ importers:
         version: 1.0.5
       '@types/node':
         specifier: catalog:node
-        version: 25.4.0
+        version: 25.6.0
       tsx:
         specifier: 'catalog:'
         version: 4.21.0
@@ -279,7 +279,7 @@ importers:
         version: link:../../config/typescript-config
       '@types/node':
         specifier: catalog:node
-        version: 25.4.0
+        version: 25.6.0
 
   packages/consumable-stream:
     devDependencies:
@@ -941,6 +941,9 @@ packages:
 
   '@types/node@25.4.0':
     resolution: {integrity: sha512-9wLpoeWuBlcbBpOY3XmzSTG3oscB6xjBEEtn+pYXTfhyXhIxC5FsBer2KTopBlvKEiW9l13po9fq+SJY/5lkhw==}
+
+  '@types/node@25.6.0':
+    resolution: {integrity: sha512-+qIYRKdNYJwY3vRCZMdJbPLJAtGjQBudzZzdzwQYkEPQd+PJGixUL5QfvCLDaULoLv+RhT3LDkwEfKaAkgSmNQ==}
 
   '@types/resolve@1.20.2':
     resolution: {integrity: sha512-60BCwRFOZCQhDncwQdxxeOEEkbc5dIMccYLwbxsS4TUNeVECQ/pBJ0j09mrHOl/JJvpRPGwO9SvE4nR2Nb/a4Q==}
@@ -2085,6 +2088,9 @@ packages:
   undici-types@7.18.2:
     resolution: {integrity: sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w==}
 
+  undici-types@7.19.2:
+    resolution: {integrity: sha512-qYVnV5OEm2AW8cJMCpdV20CDyaN3g0AjDlOGf1OW4iaDEx8MwdtChUp4zu4H0VP3nDRF/8RKWH+IPp9uW0YGZg==}
+
   unicorn-magic@0.3.0:
     resolution: {integrity: sha512-+QBBXBCvifc56fsbuxZQ6Sic3wqqc3WWaqxs58gvJrcOuN83HGTCwz3oS5phzU9LthRNE9VrJCFCLUgHeeFnfA==}
     engines: {node: '>=18'}
@@ -2511,6 +2517,10 @@ snapshots:
   '@types/node@25.4.0':
     dependencies:
       undici-types: 7.18.2
+
+  '@types/node@25.6.0':
+    dependencies:
+      undici-types: 7.19.2
 
   '@types/resolve@1.20.2': {}
 
@@ -3943,6 +3953,8 @@ snapshots:
       which-boxed-primitive: 1.1.1
 
   undici-types@7.18.2: {}
+
+  undici-types@7.19.2: {}
 
   unicorn-magic@0.3.0: {}
 

@@ -9,10 +9,10 @@ import { afterEach, beforeEach, describe, it } from 'node:test';
 import { WritableConsumableStream } from '../src/index.js';
 import { WritableStreamConsumer } from '../src/writable-stream-consumer.js';
 
-const PendingTimeoutSet = new Set<NodeJS.Timeout>();
+const pendingTimeoutSet = new Set<NodeJS.Timeout>();
 
 function cancelAllPendingWaits() {
-	for (const timeout of PendingTimeoutSet) {
+	for (const timeout of pendingTimeoutSet) {
 		clearTimeout(timeout);
 	}
 }
@@ -20,10 +20,10 @@ function cancelAllPendingWaits() {
 function wait(duration: number) {
 	return new Promise<void>((resolve) => {
 		const timeout = setTimeout(() => {
-			PendingTimeoutSet.delete(timeout);
+			pendingTimeoutSet.delete(timeout);
 			resolve();
 		}, duration);
-		PendingTimeoutSet.add(timeout);
+		pendingTimeoutSet.add(timeout);
 	});
 }
 
@@ -279,21 +279,21 @@ describe('WritableConsumableStream', () => {
 
 			const receivedPackets: string[] = [];
 			const consumable = stream.createConsumer(20);
-			let error;
+			let error: Error | undefined;
 
 			try {
 				for await (const packet of consumable) {
 					receivedPackets.push(packet);
 				}
 			} catch (err) {
-				error = err;
+				error = err as Error;
 			}
 
 			const consumerStatsList = stream.getConsumerStats();
 			assert.strictEqual(consumerStatsList.length, 0);
 
 			assert.notEqual(error, null);
-			assert.strictEqual(error.name, 'TimeoutError');
+			assert.strictEqual(error!.name, 'TimeoutError');
 			assert.strictEqual(receivedPackets.length, 0);
 
 			assert.strictEqual(stream.getConsumerCount(), 0); // Check internal cleanup.
@@ -321,7 +321,7 @@ describe('WritableConsumableStream', () => {
 					receivedPackets.push(packet);
 				}
 			} catch (err) {
-				error = err;
+				error = err as Error;
 			}
 
 			const consumerStatsList = stream.getConsumerStats();
@@ -348,20 +348,20 @@ describe('WritableConsumableStream', () => {
 
 			const receivedPackets: string[] = [];
 			const consumable = stream.createConsumer(20);
-			let error;
+			let error: Error | undefined;
 			try {
 				for await (const packet of consumable) {
 					receivedPackets.push(packet);
 				}
 			} catch (err) {
-				error = err;
+				error = err as Error;
 			}
 
 			const consumerStatsList = stream.getConsumerStats();
 			assert.strictEqual(consumerStatsList.length, 0);
 
 			assert.notEqual(error, null);
-			assert.strictEqual(error.name, 'TimeoutError');
+			assert.strictEqual(error!.name, 'TimeoutError');
 			assert.strictEqual(receivedPackets.length, 2);
 			assert.strictEqual(receivedPackets[0], 'hello0');
 			assert.strictEqual(receivedPackets[1], 'hello1');
@@ -481,7 +481,7 @@ describe('WritableConsumableStream', () => {
 				stream.kill();
 			})();
 
-			let error: Error;
+			let error: Error | undefined;
 
 			try {
 				await Promise.race([
@@ -489,7 +489,7 @@ describe('WritableConsumableStream', () => {
 					wait(100)
 				]);
 			} catch (err) {
-				error = err;
+				error = err as Error;
 			}
 
 			assert.strictEqual(error!.name, 'TimeoutError');
@@ -1050,17 +1050,17 @@ describe('WritableConsumableStream', () => {
 			let nextPacket: string | undefined = await stream.once(30);
 			assert.strictEqual(nextPacket, 'a0');
 
-			let error;
+			let error: Error | undefined;
 			nextPacket = undefined;
 			try {
 				nextPacket = await stream.once(10);
 			} catch (err) {
-				error = err;
+				error = err as Error;
 			}
 
 			assert.strictEqual(nextPacket, undefined);
 			assert.notEqual(error, null);
-			assert.strictEqual(error.name, 'TimeoutError');
+			assert.strictEqual(error!.name, 'TimeoutError');
 
 			assert.strictEqual(stream.getConsumerCount(), 0); // Check internal cleanup.
 		});
@@ -1208,7 +1208,7 @@ describe('WritableConsumableStream', () => {
 
 			const receivedPackets: string[] = [];
 			const asyncIterator = stream.createConsumer(20);
-			let error;
+			let error: Error | undefined;
 			try {
 				while (true) {
 					const packet = await asyncIterator.next();
@@ -1216,11 +1216,11 @@ describe('WritableConsumableStream', () => {
 					receivedPackets.push(packet.value);
 				}
 			} catch (err) {
-				error = err;
+				error = err as Error;
 			}
 			assert.strictEqual(receivedPackets.length, 0);
 			assert.notEqual(error, null);
-			assert.strictEqual(error.name, 'TimeoutError');
+			assert.strictEqual(error!.name, 'TimeoutError');
 
 			assert.strictEqual(stream.getConsumerCount(), 0); // Check internal cleanup.
 		});
@@ -1249,7 +1249,7 @@ describe('WritableConsumableStream', () => {
 				try {
 					packet = await asyncIterator.next();
 				} catch (err) {
-					errors.push(err);
+					errors.push(err as Error);
 					continue;
 				}
 				if (packet.done) break;
