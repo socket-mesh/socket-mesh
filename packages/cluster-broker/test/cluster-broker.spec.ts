@@ -1,3 +1,4 @@
+import { ChannelMap } from '@socket-mesh/channels';
 import { ExchangeClient } from '@socket-mesh/server/broker';
 import assert from 'node:assert';
 import { AddressInfo, createServer } from 'node:net';
@@ -5,7 +6,7 @@ import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import { ClusterBroker, ClusterBrokerHost } from '../src/index.js';
 
-interface Channels {
+interface Channels extends ChannelMap {
 	bar: { value: number },
 	foo: string
 }
