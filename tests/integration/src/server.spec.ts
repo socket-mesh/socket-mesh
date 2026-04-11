@@ -3809,4 +3809,82 @@ describe('Server service handlers', function () {
 		const user = await flatClient.invoke(['account', 'find'], 'carol');
 		assert.deepStrictEqual(user, { id: 'carol', name: 'user-carol' });
 	});
+
+	it('Should route invokes to flat handlers added after the server has started', async function () {
+		// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+		type FlatMap = {
+			ping: () => string
+		};
+
+		const flatServer: Server<FlatMap, {}, {}, MyServices> =
+			listen<FlatMap, {}, {}, MyServices>(PORT_NUMBER, {});
+
+		serviceServer = flatServer as unknown as Server<{}, {}, {}, MyServices>;
+
+		await flatServer.listen('ready').once(100);
+
+		flatServer.addHandlers({
+			ping: async () => 'pong'
+		});
+
+		const flatClient: ClientSocket<{}, FlatMap, {}, MyServices> =
+			new ClientSocket(clientOptions);
+
+		serviceClient = flatClient as unknown as ClientSocket<{}, {}, {}, MyServices>;
+
+		await flatClient.listen('connect').once(100);
+
+		const pong = await flatClient.invoke('ping');
+		assert.strictEqual(pong, 'pong');
+	});
+
+	it('Should stop routing to a flat handler after removeHandlers removes it by method name', async function () {
+		// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+		type FlatMap = {
+			ping: () => string
+		};
+
+		const flatServer: Server<FlatMap, {}, {}, MyServices> =
+			listen<FlatMap, {}, {}, MyServices>(PORT_NUMBER, {
+				ackTimeoutMs: 200,
+				handlers: {
+					ping: async () => 'pong'
+				}
+			});
+
+		serviceServer = flatServer as unknown as Server<{}, {}, {}, MyServices>;
+
+		await flatServer.listen('ready').once(100);
+
+		const flatClient: ClientSocket<{}, FlatMap, {}, MyServices> =
+			new ClientSocket(clientOptions);
+
+		serviceClient = flatClient as unknown as ClientSocket<{}, {}, {}, MyServices>;
+
+		await flatClient.listen('connect').once(100);
+
+		assert.strictEqual(await flatClient.invoke('ping'), 'pong');
+
+		flatServer.removeHandlers(['ping']);
+
+		await assert.rejects(
+			flatClient.invoke({ ackTimeoutMs: 200, method: 'ping' }),
+			(err: Error) => err.name === 'TimeoutError'
+		);
+	});
+
+	it('Should never drop the built-in handlers when removeHandlers is called without a service', async function () {
+		serviceServer = listen<{}, {}, {}, MyServices>(PORT_NUMBER, {});
+		await serviceServer.listen('ready').once(100);
+
+		// Calling removeHandlers('') with no method list must be a no-op —
+		// the flat slot holds the built-in protocol handlers (#handshake etc.).
+		serviceServer.removeHandlers('');
+
+		serviceClient = new ClientSocket(clientOptions);
+
+		// If the built-ins were dropped the handshake would never complete and
+		// this `once` would never resolve — the test would hang and then fail.
+		await serviceClient.listen('connect').once(100);
+	});
 });
