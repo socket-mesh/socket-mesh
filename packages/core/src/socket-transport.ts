@@ -103,6 +103,7 @@ export class BaseSocketTransport<TState extends object = {}> {
 	private _outboundPreparedMessageCount: number;
 	private _outboundSentMessageCount: number;
 	private _pingTimeoutRef: NodeJS.Timeout | null;
+	private readonly _serviceHandlers: { [service: string]: LooseHandlerMap };
 	private _signedAuthToken: null | SignedAuthToken;
 	private _socket!: BaseSocket<TState>;
 	private _webSocket: null | ws.WebSocket;
@@ -136,6 +137,7 @@ export class BaseSocketTransport<TState extends object = {}> {
 		this._outboundPreparedMessageCount = 0;
 		this._outboundSentMessageCount = 0;
 		this._pingTimeoutRef = null;
+		this._serviceHandlers = options?.serviceHandlers || {};
 		this.plugins = options?.plugins || [];
 		this.streamCleanupMode = options?.streamCleanupMode || 'kill';
 	}
@@ -494,7 +496,10 @@ export class BaseSocketTransport<TState extends object = {}> {
 				response = { error: pluginError, rid: packet.cid, timeoutAt };
 			}
 		} else {
-			const handler = this._handlers[packet.method];
+			const service = 'service' in packet ? packet.service : undefined;
+			const handler = service
+				? this._serviceHandlers[service]?.[packet.method]
+				: this._handlers[packet.method];
 
 			if (handler) {
 				wasHandled = true;

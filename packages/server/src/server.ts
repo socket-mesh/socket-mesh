@@ -2,7 +2,7 @@ import { AsyncStreamEmitter } from '@socket-mesh/async-stream-emitter';
 import { AuthEngine, defaultAuthEngine, isAuthEngine } from '@socket-mesh/auth-engine';
 import { ChannelMap } from '@socket-mesh/channels';
 import { removeAuthTokenHandler } from '@socket-mesh/client';
-import { CallIdGenerator, LooseHandlerMap, PrivateMethodMap, PublicMethodMap, ServiceMap, StreamCleanupMode, toError } from '@socket-mesh/core';
+import { CallIdGenerator, HandlerMap, LooseHandlerMap, MethodMap, PrivateMethodMap, PublicMethodMap, ServiceMap, StreamCleanupMode, toError } from '@socket-mesh/core';
 import { ServerProtocolError } from '@socket-mesh/errors';
 import defaultCodec, { CodecEngine } from '@socket-mesh/formatter';
 import { DemuxedConsumableStream, StreamEvent } from '@socket-mesh/stream-demux';
@@ -20,7 +20,9 @@ import { subscribeHandler } from './handlers/subscribe.js';
 import { unsubscribeHandler } from './handlers/unsubscribe.js';
 import { ServerPlugin } from './plugin/server-plugin.js';
 import { ServerOptions } from './server-options.js';
+import { ServerSocketState } from './server-socket-state.js';
 import { ServerSocket } from './server-socket.js';
+import { ServerTransport } from './server-transport.js';
 
 export class Server<
 	TIncoming extends PublicMethodMap = {},
@@ -33,11 +35,12 @@ export class Server<
 	TServerState extends object = {}
 > extends AsyncStreamEmitter<ServerEvent<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>> {
 	private readonly _callIdGenerator: CallIdGenerator;
-	private _handlers: LooseHandlerMap;
+	private readonly _handlers: LooseHandlerMap;
 
 	private _isListening: boolean;
 	private _isReady: boolean;
 	private _pingIntervalRef: NodeJS.Timeout | null;
+	private readonly _serviceHandlers: { [service: string]: LooseHandlerMap };
 	private readonly _wss: WebSocketServer;
 
 	// | ServerSocket<TIncomingMap, TServiceMap, TOutgoingMap, TPrivateIncomingMap, TPrivateOutgoingMap, TServerState, TSocketState>
@@ -99,6 +102,14 @@ export class Server<
 			},
 			options.handlers
 		);
+		this._serviceHandlers = {};
+
+		if (options.serviceHandlers) {
+			for (const service of Object.keys(options.serviceHandlers)) {
+				this._serviceHandlers[service] = { ...options.serviceHandlers[service] };
+			}
+		}
+
 		this.httpServer = options.server!;
 
 		this.plugins = options.plugins || [];
@@ -142,6 +153,59 @@ export class Server<
 				this.emit('ready', {});
 			})();
 		}
+	}
+
+	/**
+	 * Register a group of strongly-typed request handlers under a service name.
+	 *
+	 * Handlers added this way can be added or replaced after the server has
+	 * started and are immediately visible to all existing and future
+	 * connections (the underlying handler map is shared by reference). The
+	 * service name is surfaced via {@link services} so UI/tooling can list
+	 * which groups are currently installed.
+	 *
+	 * When the service name is known to the server's `TService` generic,
+	 * TypeScript validates the handler shape against the declared method map.
+	 * For ad-hoc/dynamic services not present in `TService`, pass an explicit
+	 * generic argument with the method map for the new service.
+	 *
+	 * @example
+	 * // Statically declared on the server generic:
+	 * server.addHandlers('account', { find: async (args) => { ... } });
+	 *
+	 * @example
+	 * // Dynamically added from a module at runtime:
+	 * server.addHandlers<'inventory', InventoryMethodMap>('inventory', handlers);
+	 */
+	public addHandlers<
+		TServiceName extends keyof TService & string
+	>(
+		service: TServiceName,
+		handlers: HandlerMap<
+			TService[TServiceName],
+			TState & ServerSocketState,
+			ServerSocket<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>,
+			ServerTransport<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
+		>
+	): void;
+	public addHandlers<
+		TServiceName extends string,
+		TServiceMethodMap extends MethodMap
+	>(
+		service: TServiceName,
+		handlers: HandlerMap<
+			TServiceMethodMap,
+			TState & ServerSocketState,
+			ServerSocket<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>,
+			ServerTransport<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
+		>
+	): void;
+	public addHandlers(service: string, handlers: LooseHandlerMap): void {
+		if (!this._serviceHandlers[service]) {
+			this._serviceHandlers[service] = {};
+		}
+
+		Object.assign(this._serviceHandlers[service], handlers);
 	}
 
 	public addPlugin(...plugin: ServerPlugin<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>[]): void {
@@ -260,6 +324,12 @@ export class Server<
 		return this.brokerEngine.exchange;
 	}
 
+	/** Method names registered under a given service, or an empty array if none. */
+	public getServiceMethods(service: string): string[] {
+		const group = this._serviceHandlers[service];
+		return group ? Object.keys(group) : [];
+	}
+
 	public get isListening(): boolean {
 		return this._isListening;
 	}
@@ -322,6 +392,7 @@ export class Server<
 			plugins: this.plugins,
 			request: upgradeReq,
 			server: this,
+			serviceHandlers: this._serviceHandlers,
 			socket: wsSocket,
 			state: {} as any,
 			streamCleanupMode: this.socketStreamCleanupMode
@@ -354,6 +425,39 @@ export class Server<
 		this._isListening = true;
 
 		this.emit('listening', {});
+	}
+
+	/**
+	 * Unregister either a whole service (when `methods` is omitted) or a
+	 * specific set of methods within a service. Removing a service empties
+	 * the group and drops the key so it no longer appears in {@link services}.
+	 */
+	public removeHandlers(service: string, methods?: readonly string[] | string): void {
+		const group = this._serviceHandlers[service];
+
+		if (!group) {
+			return;
+		}
+
+		if (methods === undefined) {
+			delete this._serviceHandlers[service];
+			return;
+		}
+
+		const list = typeof methods === 'string' ? [methods] : methods;
+
+		for (const method of list) {
+			delete group[method];
+		}
+
+		if (Object.keys(group).length === 0) {
+			delete this._serviceHandlers[service];
+		}
+	}
+
+	/** Names of all service handler groups currently registered on the server. */
+	public get services(): string[] {
+		return Object.keys(this._serviceHandlers);
 	}
 
 	private socketDisconnected(

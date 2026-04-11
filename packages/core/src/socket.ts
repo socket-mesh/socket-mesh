@@ -25,6 +25,7 @@ export interface BaseSocketOptions<TState extends object = {}> {
 	handlers?: LooseHandlerMap,
 	isPingTimeoutDisabled?: boolean,
 	plugins?: AnyPlugin[],
+	serviceHandlers?: { [service: string]: LooseHandlerMap },
 	state?: Partial<TState>,
 
 	// Lets you specify the default cleanup behaviour for
