@@ -60,6 +60,19 @@ export interface ServerOptions<
 
 	plugins?: ServerPlugin<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>[],
 
+	// Handler groups keyed by service name. Each key must match a service
+	// declared in TService and the handlers are strongly-typed against that
+	// service's method map. Services can also be added/removed dynamically
+	// at runtime via Server.addHandlers()/removeHandlers().
+	serviceHandlers?: {
+		[TServiceName in keyof TService & string]?: HandlerMap<
+			TService[TServiceName],
+			TState & ServerSocketState,
+			ServerSocket<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>,
+			ServerTransport<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>
+		>
+	},
+
 	// The maximum number of unique channels which a single socket can subscribe to.
 	socketChannelLimit?: number,
 

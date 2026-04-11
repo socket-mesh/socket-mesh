@@ -1,0 +1,3 @@
+{
+	"extends": "@socket-mesh/typescript-config/tsconfig.json"
+}

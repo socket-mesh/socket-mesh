@@ -3,7 +3,7 @@ import { ClientPrivateMap, ServerPrivateMap } from '@socket-mesh/client';
 import {
 	AuthenticateEvent, AuthStateChangeEvent, BadAuthTokenEvent, BaseSocket, BaseSocketOptions,
 	CloseEvent, ConnectEvent, ConnectingEvent, DeauthenticateEvent, DisconnectEvent, ErrorEvent,
-	FunctionReturnType, InvokeMethodOptions, InvokeServiceOptions, LooseHandlerMap, MessageEvent,
+	FunctionReturnType, InvokeMethodOptions, InvokeServiceOptions, MessageEvent,
 	PingEvent, PongEvent, PrivateMethodMap, PublicMethodMap, RemoveAuthTokenEvent, RequestEvent,
 	ResponseEvent, ServiceMap, ServiceMethodName, ServiceName, Socket, SocketEvent, toError,
 	TypedRequestEvent, TypedResponseEvent, TypedSocketEvent
@@ -28,7 +28,6 @@ export interface ServerSocketOptions<
 	TPrivateOutgoing extends PrivateMethodMap,
 	TServerState extends object
 > extends BaseSocketOptions<TState & ServerSocketState> {
-	handlers: LooseHandlerMap,
 	id?: string,
 	plugins?: ServerPlugin<TIncoming, TOutgoing, TChannel, TService, TState, TPrivateIncoming, TPrivateOutgoing, TServerState>[],
 	request: IncomingMessage,

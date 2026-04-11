@@ -3482,3 +3482,409 @@ describe('Server Tests', function () {
 		});
 	});
 });
+
+describe('Server service handlers', function () {
+	// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+	type AccountMethods = {
+		find: (id: string) => { id: string, name: string },
+		list: () => string[]
+	};
+
+	// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+	type InventoryMethods = {
+		getStock: (sku: string) => number
+	};
+
+	// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+	type MyServices = {
+		account: AccountMethods,
+		inventory: InventoryMethods
+	};
+
+	let serviceClient: ClientSocket<{}, {}, {}, MyServices>;
+	let serviceServer: Server<{}, {}, {}, MyServices>;
+
+	afterEach(async function () {
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+		if (serviceClient) {
+			serviceClient.closeListeners();
+			serviceClient.disconnect();
+		}
+		// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+		if (serviceServer) {
+			serviceServer.closeListeners();
+			serviceServer.httpServer.close();
+			await serviceServer.close();
+		}
+	});
+
+	it('Should dispatch to handlers provided via options.serviceHandlers', async function () {
+		serviceServer = listen<{}, {}, {}, MyServices>(PORT_NUMBER, {
+			ackTimeoutMs: 200,
+			serviceHandlers: {
+				account: {
+					find: async ({ options: id }: ServerRequestHandlerArgs<string>) =>
+						({ id, name: `user-${id}` }),
+					list: async () => ['alice', 'bob']
+				}
+			}
+		});
+
+		await serviceServer.listen('ready').once(100);
+
+		serviceClient = new ClientSocket(clientOptions);
+		await serviceClient.listen('connect').once(100);
+
+		const user = await serviceClient.invoke(['account', 'find'], 'alice');
+		assert.deepStrictEqual(user, { id: 'alice', name: 'user-alice' });
+
+		const users = await serviceClient.invoke(['account', 'list']);
+		assert.deepStrictEqual(users, ['alice', 'bob']);
+	});
+
+	it('Should merge options.serviceHandlers into the internal map without mutating the input', async function () {
+		const handlersInput = {
+			account: {
+				find: async ({ options: id }: ServerRequestHandlerArgs<string>) =>
+					({ id, name: `user-${id}` })
+			}
+		};
+
+		serviceServer = listen<{}, {}, {}, MyServices>(PORT_NUMBER, {
+			serviceHandlers: handlersInput
+		});
+
+		await serviceServer.listen('ready').once(100);
+
+		// Adding a new method on the server must not leak back into the caller's map.
+		serviceServer.addHandlers<'account', AccountMethods>('account', {
+			list: async () => ['alice']
+		});
+
+		assert.deepStrictEqual(Object.keys(handlersInput.account), ['find']);
+		assert.deepStrictEqual(serviceServer.getServiceMethods('account').sort(), ['find', 'list']);
+	});
+
+	it('Should route invokes to handlers added after the server has started', async function () {
+		serviceServer = listen<{}, {}, {}, MyServices>(PORT_NUMBER, { ackTimeoutMs: 200 });
+		await serviceServer.listen('ready').once(100);
+
+		serviceServer.addHandlers<'account', AccountMethods>('account', {
+			find: async ({ options: id }: ServerRequestHandlerArgs<string>) =>
+				({ id, name: `user-${id}` }),
+			list: async () => ['added-after-start']
+		});
+
+		serviceClient = new ClientSocket(clientOptions);
+		await serviceClient.listen('connect').once(100);
+
+		const user = await serviceClient.invoke(['account', 'find'], 'bob');
+		assert.deepStrictEqual(user, { id: 'bob', name: 'user-bob' });
+
+		const users = await serviceClient.invoke(['account', 'list']);
+		assert.deepStrictEqual(users, ['added-after-start']);
+	});
+
+	it('Should propagate newly added handlers to already-connected clients without reconnect', async function () {
+		serviceServer = listen<{}, {}, {}, MyServices>(PORT_NUMBER, { ackTimeoutMs: 200 });
+		await serviceServer.listen('ready').once(100);
+
+		// Connect the client BEFORE installing the handler group.
+		serviceClient = new ClientSocket(clientOptions);
+		await serviceClient.listen('connect').once(100);
+
+		let calls = 0;
+		serviceServer.addHandlers<'inventory', InventoryMethods>('inventory', {
+			getStock: async ({ options: sku }: ServerRequestHandlerArgs<string>) => {
+				calls++;
+				return sku === 'sku-1' ? 42 : 0;
+			}
+		});
+
+		const stock = await serviceClient.invoke(['inventory', 'getStock'], 'sku-1');
+		assert.strictEqual(stock, 42);
+		assert.strictEqual(calls, 1);
+	});
+
+	it('Should merge handlers when addHandlers is called multiple times on the same service', async function () {
+		serviceServer = listen<{}, {}, {}, MyServices>(PORT_NUMBER, { ackTimeoutMs: 200 });
+		await serviceServer.listen('ready').once(100);
+
+		serviceServer.addHandlers<'account', AccountMethods>('account', {
+			find: async ({ options: id }: ServerRequestHandlerArgs<string>) =>
+				({ id, name: 'alice' })
+		});
+
+		serviceServer.addHandlers<'account', AccountMethods>('account', {
+			list: async () => ['alice']
+		});
+
+		assert.deepStrictEqual(serviceServer.getServiceMethods('account').sort(), ['find', 'list']);
+
+		serviceClient = new ClientSocket(clientOptions);
+		await serviceClient.listen('connect').once(100);
+
+		const user = await serviceClient.invoke(['account', 'find'], 'a');
+		assert.deepStrictEqual(user, { id: 'a', name: 'alice' });
+
+		const users = await serviceClient.invoke(['account', 'list']);
+		assert.deepStrictEqual(users, ['alice']);
+	});
+
+	it('Should let a later addHandlers call replace an existing method on the same service', async function () {
+		serviceServer = listen<{}, {}, {}, MyServices>(PORT_NUMBER, { ackTimeoutMs: 200 });
+		await serviceServer.listen('ready').once(100);
+
+		serviceServer.addHandlers<'account', AccountMethods>('account', {
+			find: async () => ({ id: 'first', name: 'first' })
+		});
+
+		serviceServer.addHandlers<'account', AccountMethods>('account', {
+			find: async () => ({ id: 'second', name: 'second' })
+		});
+
+		serviceClient = new ClientSocket(clientOptions);
+		await serviceClient.listen('connect').once(100);
+
+		const user = await serviceClient.invoke(['account', 'find'], 'ignored');
+		assert.deepStrictEqual(user, { id: 'second', name: 'second' });
+	});
+
+	it('Should stop routing after removeHandlers drops the whole service group', async function () {
+		serviceServer = listen<{}, {}, {}, MyServices>(PORT_NUMBER, {
+			ackTimeoutMs: 200,
+			serviceHandlers: {
+				account: {
+					find: async ({ options: id }: ServerRequestHandlerArgs<string>) =>
+						({ id, name: `user-${id}` }),
+					list: async () => []
+				}
+			}
+		});
+
+		await serviceServer.listen('ready').once(100);
+
+		serviceClient = new ClientSocket(clientOptions);
+		await serviceClient.listen('connect').once(100);
+
+		const before = await serviceClient.invoke(['account', 'find'], 'alice');
+		assert.deepStrictEqual(before, { id: 'alice', name: 'user-alice' });
+
+		serviceServer.removeHandlers('account');
+		assert.deepStrictEqual(serviceServer.services, []);
+
+		let error: Error | null = null;
+		try {
+			// Tight ack timeout so the test fails fast rather than waiting for the
+			// client's 10s default.
+			await serviceClient.invoke(['account', 'find', 200], 'alice');
+		} catch (err) {
+			error = toError(err);
+		}
+		assert.notEqual(error, null);
+		assert.strictEqual(error!.name, 'TimeoutError');
+	});
+
+	it('Should only drop the specified methods when removeHandlers is called with method names', async function () {
+		serviceServer = listen<{}, {}, {}, MyServices>(PORT_NUMBER, {
+			ackTimeoutMs: 200,
+			serviceHandlers: {
+				account: {
+					find: async ({ options: id }: ServerRequestHandlerArgs<string>) =>
+						({ id, name: `user-${id}` }),
+					list: async () => ['alice', 'bob']
+				}
+			}
+		});
+
+		await serviceServer.listen('ready').once(100);
+
+		serviceClient = new ClientSocket(clientOptions);
+		await serviceClient.listen('connect').once(100);
+
+		serviceServer.removeHandlers('account', 'find');
+		assert.deepStrictEqual(serviceServer.getServiceMethods('account'), ['list']);
+
+		// `list` is still wired up.
+		const users = await serviceClient.invoke(['account', 'list']);
+		assert.deepStrictEqual(users, ['alice', 'bob']);
+
+		// `find` is gone and now times out.
+		let error: Error | null = null;
+		try {
+			await serviceClient.invoke(['account', 'find', 200], 'alice');
+		} catch (err) {
+			error = toError(err);
+		}
+		assert.notEqual(error, null);
+		assert.strictEqual(error!.name, 'TimeoutError');
+	});
+
+	it('Should drop the service key when removeHandlers empties the group', async function () {
+		serviceServer = listen<{}, {}, {}, MyServices>(PORT_NUMBER, {
+			serviceHandlers: {
+				account: {
+					find: async () => ({ id: '', name: '' })
+				}
+			}
+		});
+
+		await serviceServer.listen('ready').once(100);
+
+		assert.deepStrictEqual(serviceServer.services, ['account']);
+
+		serviceServer.removeHandlers('account', ['find']);
+		assert.deepStrictEqual(serviceServer.services, []);
+		assert.deepStrictEqual(serviceServer.getServiceMethods('account'), []);
+	});
+
+	it('Should be a no-op when removeHandlers is called for an unknown service', async function () {
+		serviceServer = listen<{}, {}, {}, MyServices>(PORT_NUMBER, {});
+		await serviceServer.listen('ready').once(100);
+
+		// Must not throw.
+		serviceServer.removeHandlers('does-not-exist');
+		serviceServer.removeHandlers('does-not-exist', 'find');
+		assert.deepStrictEqual(serviceServer.services, []);
+	});
+
+	it('Should list all registered service names via the `services` getter', async function () {
+		serviceServer = listen<{}, {}, {}, MyServices>(PORT_NUMBER, {
+			serviceHandlers: {
+				account: {
+					find: async () => ({ id: '', name: '' })
+				},
+				inventory: {
+					getStock: async () => 0
+				}
+			}
+		});
+
+		await serviceServer.listen('ready').once(100);
+
+		assert.deepStrictEqual(serviceServer.services.sort(), ['account', 'inventory']);
+	});
+
+	it('Should report an empty array from getServiceMethods for an unknown service', async function () {
+		serviceServer = listen<{}, {}, {}, MyServices>(PORT_NUMBER, {});
+		await serviceServer.listen('ready').once(100);
+
+		assert.deepStrictEqual(serviceServer.getServiceMethods('does-not-exist'), []);
+	});
+
+	it('Should keep flat handlers and service handlers isolated from each other', async function () {
+		// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+		type FlatMap = {
+			ping: () => string
+		};
+
+		const flatServer: Server<FlatMap, {}, {}, MyServices> = listen<FlatMap, {}, {}, MyServices>(PORT_NUMBER, {
+			ackTimeoutMs: 200,
+			handlers: {
+				ping: async () => 'pong'
+			},
+			serviceHandlers: {
+				account: {
+					find: async ({ options: id }: ServerRequestHandlerArgs<string>) =>
+						({ id, name: `user-${id}` }),
+					list: async () => []
+				}
+			}
+		});
+
+		serviceServer = flatServer as unknown as Server<{}, {}, {}, MyServices>;
+
+		await flatServer.listen('ready').once(100);
+
+		const flatClient: ClientSocket<{}, FlatMap, {}, MyServices> =
+			new ClientSocket(clientOptions);
+
+		serviceClient = flatClient as unknown as ClientSocket<{}, {}, {}, MyServices>;
+
+		await flatClient.listen('connect').once(100);
+
+		const pong = await flatClient.invoke('ping');
+		assert.strictEqual(pong, 'pong');
+
+		const user = await flatClient.invoke(['account', 'find'], 'carol');
+		assert.deepStrictEqual(user, { id: 'carol', name: 'user-carol' });
+	});
+
+	it('Should route invokes to flat handlers added after the server has started', async function () {
+		// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+		type FlatMap = {
+			ping: () => string
+		};
+
+		const flatServer: Server<FlatMap, {}, {}, MyServices> =
+			listen<FlatMap, {}, {}, MyServices>(PORT_NUMBER, {});
+
+		serviceServer = flatServer as unknown as Server<{}, {}, {}, MyServices>;
+
+		await flatServer.listen('ready').once(100);
+
+		flatServer.addHandlers({
+			ping: async () => 'pong'
+		});
+
+		const flatClient: ClientSocket<{}, FlatMap, {}, MyServices> =
+			new ClientSocket(clientOptions);
+
+		serviceClient = flatClient as unknown as ClientSocket<{}, {}, {}, MyServices>;
+
+		await flatClient.listen('connect').once(100);
+
+		const pong = await flatClient.invoke('ping');
+		assert.strictEqual(pong, 'pong');
+	});
+
+	it('Should stop routing to a flat handler after removeHandlers removes it by method name', async function () {
+		// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+		type FlatMap = {
+			ping: () => string
+		};
+
+		const flatServer: Server<FlatMap, {}, {}, MyServices> =
+			listen<FlatMap, {}, {}, MyServices>(PORT_NUMBER, {
+				ackTimeoutMs: 200,
+				handlers: {
+					ping: async () => 'pong'
+				}
+			});
+
+		serviceServer = flatServer as unknown as Server<{}, {}, {}, MyServices>;
+
+		await flatServer.listen('ready').once(100);
+
+		const flatClient: ClientSocket<{}, FlatMap, {}, MyServices> =
+			new ClientSocket(clientOptions);
+
+		serviceClient = flatClient as unknown as ClientSocket<{}, {}, {}, MyServices>;
+
+		await flatClient.listen('connect').once(100);
+
+		assert.strictEqual(await flatClient.invoke('ping'), 'pong');
+
+		flatServer.removeHandlers(['ping']);
+
+		await assert.rejects(
+			flatClient.invoke({ ackTimeoutMs: 200, method: 'ping' }),
+			(err: Error) => err.name === 'TimeoutError'
+		);
+	});
+
+	it('Should never drop the built-in handlers when removeHandlers is called without a service', async function () {
+		serviceServer = listen<{}, {}, {}, MyServices>(PORT_NUMBER, {});
+		await serviceServer.listen('ready').once(100);
+
+		// Calling removeHandlers('') with no method list must be a no-op —
+		// the flat slot holds the built-in protocol handlers (#handshake etc.).
+		serviceServer.removeHandlers('');
+
+		serviceClient = new ClientSocket(clientOptions);
+
+		// If the built-ins were dropped the handshake would never complete and
+		// this `once` would never resolve — the test would hang and then fail.
+		await serviceClient.listen('connect').once(100);
+	});
+});

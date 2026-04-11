@@ -9,6 +9,7 @@
 			"@socket-mesh/auth-engine": ["../../packages/auth-engine/dist/index.d.ts"],
 			"@socket-mesh/channels": ["../../packages/channels/dist/index.d.ts"],
 			"@socket-mesh/client": ["../../packages/client/dist/index.d.ts"],
+			"@socket-mesh/cluster-broker": ["../../packages/cluster-broker/dist/index.d.ts"],
 			"@socket-mesh/consumable-stream": ["../../packages/consumable-stream/dist/index.d.ts"],
 			"@socket-mesh/core": ["../../packages/core/dist/index.d.ts"],
 			"@socket-mesh/errors": ["../../packages/errors/dist/index.d.ts"],

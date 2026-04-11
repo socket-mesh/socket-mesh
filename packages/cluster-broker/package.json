@@ -1,0 +1,54 @@
+{
+	"name": "@socket-mesh/cluster-broker",
+	"description": "Cross-process pub/sub broker for SocketMesh. Provides a Broker<T> implementation that relays channel messages between worker processes through a dedicated broker process over a loopback TCP socket.",
+	"version": "0.2.0",
+	"type": "module",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"files": ["./dist"],
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./dist/index.js"
+		}
+	},
+	"author": {
+		"name": "Greg Kimmy"
+	},
+	"scripts": {
+		"build": "node ../../scripts/build.mjs && tsc --project tsconfig.build.json",
+		"deploy": "node ../../scripts/publish.mjs",
+		"lint": "eslint . --c ../../eslint.config.mjs",
+		"lint:fix": "eslint . --c ../../eslint.config.mjs --fix",
+		"test": "tsx --tsconfig ./tsconfig.build.json --test ./src/**/*.{spec,test}.ts ./test/**/*.{spec,test}.ts"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/socket-mesh/client-server.git"
+	},
+	"bugs": {
+		"url": "https://github.com/socket-mesh/client-server/labels/cluster-broker"
+	},
+	"devDependencies": {
+		"@socket-mesh/typescript-config": "workspace:^",
+		"@types/node": "catalog:node"
+	},
+	"dependencies": {
+		"@socket-mesh/async-stream-emitter": "workspace:^",
+		"@socket-mesh/channels": "workspace:^",
+		"@socket-mesh/formatter": "workspace:^",
+		"@socket-mesh/server": "workspace:^",
+		"@socket-mesh/stream-demux": "workspace:^"
+	},
+	"keywords": [
+		"cluster",
+		"broker",
+		"pubsub",
+		"ipc",
+		"socket-mesh"
+	],
+	"engines": {
+		"node": ">= 18.0.0"
+	}
+}

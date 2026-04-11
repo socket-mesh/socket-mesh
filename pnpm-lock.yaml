@@ -256,6 +256,31 @@ importers:
         specifier: 'catalog:'
         version: 2.8.1
 
+  packages/cluster-broker:
+    dependencies:
+      '@socket-mesh/async-stream-emitter':
+        specifier: workspace:^
+        version: link:../async-stream-emitter
+      '@socket-mesh/channels':
+        specifier: workspace:^
+        version: link:../channels
+      '@socket-mesh/formatter':
+        specifier: workspace:^
+        version: link:../formatter
+      '@socket-mesh/server':
+        specifier: workspace:^
+        version: link:../server
+      '@socket-mesh/stream-demux':
+        specifier: workspace:^
+        version: link:../stream-demux
+    devDependencies:
+      '@socket-mesh/typescript-config':
+        specifier: workspace:^
+        version: link:../../config/typescript-config
+      '@types/node':
+        specifier: catalog:node
+        version: 25.4.0
+
   packages/consumable-stream:
     devDependencies:
       '@socket-mesh/typescript-config':

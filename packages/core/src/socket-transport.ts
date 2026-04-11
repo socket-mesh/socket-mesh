@@ -96,13 +96,13 @@ export class BaseSocketTransport<TState extends object = {}> {
 	private _authToken: AuthToken | null;
 	private readonly _callbackMap: { [cid: number]: InvokeCallback<unknown> };
 	private readonly _callIdGenerator: CallIdGenerator;
-	private readonly _handlers: LooseHandlerMap;
 	private _inboundProcessedMessageCount: number;
 	private _inboundReceivedMessageCount: number;
 	private _isReady: boolean;
 	private _outboundPreparedMessageCount: number;
 	private _outboundSentMessageCount: number;
 	private _pingTimeoutRef: NodeJS.Timeout | null;
+	private readonly _serviceHandlers: { [service: string]: LooseHandlerMap };
 	private _signedAuthToken: null | SignedAuthToken;
 	private _socket!: BaseSocket<TState>;
 	private _webSocket: null | ws.WebSocket;
@@ -129,13 +129,26 @@ export class BaseSocketTransport<TState extends object = {}> {
 
 		this._callbackMap = {};
 		this.codecEngine = options?.codecEngine || defaultCodec;
-		this._handlers = options?.handlers || {};
 		this.id = null;
 		this._inboundProcessedMessageCount = 0;
 		this._inboundReceivedMessageCount = 0;
 		this._outboundPreparedMessageCount = 0;
 		this._outboundSentMessageCount = 0;
 		this._pingTimeoutRef = null;
+		this._serviceHandlers = options?.serviceHandlers || {};
+
+		// Flat (non-service) handlers live under the empty-string service key
+		// so dispatch only has to consult one map. We merge `options.handlers`
+		// into that slot without cloning the top-level map, so dynamic mutations
+		// to the caller's serviceHandlers reference (e.g. Server.addHandlers)
+		// still propagate to this transport.
+		if (options?.handlers) {
+			this._serviceHandlers[''] = {
+				...this._serviceHandlers[''],
+				...options.handlers
+			};
+		}
+
 		this.plugins = options?.plugins || [];
 		this.streamCleanupMode = options?.streamCleanupMode || 'kill';
 	}
@@ -494,7 +507,8 @@ export class BaseSocketTransport<TState extends object = {}> {
 				response = { error: pluginError, rid: packet.cid, timeoutAt };
 			}
 		} else {
-			const handler = this._handlers[packet.method];
+			const service = 'service' in packet ? packet.service : '';
+			const handler = this._serviceHandlers[service]?.[packet.method];
 
 			if (handler) {
 				wasHandled = true;
