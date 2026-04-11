@@ -1,7 +1,6 @@
 {
 	"extends": "./tsconfig.build.json",
 	"compilerOptions": {
-		"baseUrl": ".",
 		"noEmit": true,
 		"paths": {
 			"@socket-mesh/async-stream-emitter": ["../../packages/async-stream-emitter/src/index.ts"],

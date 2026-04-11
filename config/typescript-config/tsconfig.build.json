@@ -1,7 +1,6 @@
 {
 	"extends": "@secure-data-systems/tsconfig/tsconfig.build.json",
 	"compilerOptions": {
-		"baseUrl": ".",
 		"forceConsistentCasingInFileNames": true,
 		"paths": {
 			"@socket-mesh/async-stream-emitter": ["../../packages/async-stream-emitter/dist/index.d.ts"],
